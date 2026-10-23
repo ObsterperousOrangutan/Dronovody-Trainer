@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dronovody Online</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script>if(!window.Peer)document.write('<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"><\/script>');</script>
+<style>
+:root{
+  --bg:#1c2230; --panel:#243049; --panel2:#2d3b59; --ink:#e8e2cf; --muted:#a9b0bf;
+  --sand:#d9c89a; --sand2:#bfae7c; --blue:#3a5a9c; --orange:#d9822b; --red:#c8453a; --green:#6aa84f;
+  --threat:#c9771f; --threatbg:#3b2a12; --trouble:#e0a52b; --support:#4b6a7a; --drone:#3d5f9e; --char:#5d6b43;
+  --radius:8px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.35 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+button{font:inherit;cursor:pointer;border:1px solid #0006;border-radius:6px;padding:6px 10px;background:var(--sand);color:#1b2130;font-weight:600}
+button:hover{filter:brightness(1.08)}
+button:disabled{opacity:.45;cursor:not-allowed;filter:none}
+button.sec{background:var(--panel2);color:var(--ink);border-color:#fff2}
+button.danger{background:var(--red);color:#fff}
+button.sm{padding:3px 7px;font-size:12px;font-weight:600}
+h1,h2,h3,h4{margin:0;font-weight:700;letter-spacing:.02em}
+#app{display:grid;grid-template-columns:1fr 320px;grid-template-rows:auto 1fr;height:100vh}
+header{grid-column:1/3;display:flex;align-items:center;gap:14px;padding:8px 14px;background:#141a26;border-bottom:1px solid #fff1}
+header .title{font-size:18px;color:var(--sand)}
+header .title small{color:var(--muted);font-weight:400;margin-left:8px}
+.phasebar{display:flex;gap:6px;margin-left:auto}
+.phase{padding:4px 10px;border-radius:4px;background:#2a3246;color:var(--muted);font-weight:700;font-size:12px;text-transform:uppercase}
+.phase.on{background:var(--sand);color:#1b2130}
+.pill{padding:3px 8px;border-radius:999px;background:#2a3246;font-size:12px;color:var(--muted)}
+.pill b{color:var(--ink)}
+main{overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+aside{border-left:1px solid #fff1;background:#141a26;display:flex;flex-direction:column;min-height:0}
+aside .tabs{display:flex;border-bottom:1px solid #fff1}
+aside .tabs button{flex:1;border-radius:0;background:transparent;color:var(--muted);border:0;padding:8px}
+aside .tabs button.on{color:var(--sand);box-shadow:inset 0 -2px 0 var(--sand)}
+aside .body{overflow:auto;padding:10px;font-size:13px;flex:1}
+#log div{padding:3px 0;border-bottom:1px dashed #fff1;color:var(--muted)}
+#log div.hi{color:var(--ink)}
+#log div.bad{color:#f0a090}
+#log div.good{color:#b7e39b}
+#log div.rnd{color:var(--sand);font-weight:700;margin-top:6px}
+.section{background:var(--panel);border-radius:var(--radius);padding:10px}
+.section h3{font-size:13px;text-transform:uppercase;color:var(--sand);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.section h3 .pill{text-transform:none}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+.cards{display:flex;flex-wrap:wrap;gap:8px}
+.card{width:150px;min-height:96px;border-radius:6px;padding:6px 7px;background:#333;border:1px solid #0008;position:relative;font-size:11.5px;display:flex;flex-direction:column;gap:3px;box-shadow:0 1px 2px #0006}
+.card .nm{font-weight:700;font-size:12px;line-height:1.15}
+.card .sub{color:#ddd9;font-style:italic;font-size:10.5px}
+.card .tx{color:#eeec;flex:1}
+.card .chips{display:flex;flex-wrap:wrap;gap:3px}
+.chip{display:inline-block;padding:1px 5px;border-radius:3px;background:#0005;font-size:10.5px;font-weight:700;color:#fff}
+.chip.d1{background:#7a4a1a}.chip.d2{background:#4a2a7a}.chip.tr{background:#b86a12}.chip.die{background:#fff;color:#111;border:1px solid #333;font-size:11.5px}
+.chip.cost{background:#1b2130;border:1px solid var(--sand2);color:var(--sand)}
+.chip.warn{background:var(--red)}
+.card.threat{background:linear-gradient(160deg,#4a3312,#2b1d0b);border-color:#b8701c}
+.card.trouble{background:linear-gradient(160deg,#6f5312,#3d2d08);border-color:#e0a52b}
+.card.support{background:linear-gradient(160deg,#3e5866,#223640);border-color:#6b8d9e}
+.card.project{background:linear-gradient(160deg,#3b4458,#1f2530);border-color:#8591ad}
+.card.drone{background:linear-gradient(160deg,#2f4f85,#1a2a4d);border-color:#6e8fd0}
+.card.char{background:linear-gradient(160deg,#4f5c38,#2a311d);border-color:#8d9a67}
+.card.broken{opacity:.55;outline:2px dashed var(--red)}
+.card.broken::after{content:"BROKEN";position:absolute;right:6px;top:6px;color:#ffb0a0;font-weight:800;font-size:10px}
+.card.disabled{opacity:.6}
+.card.disabled::after{content:"EXHAUSTED";position:absolute;right:6px;top:6px;color:#ffd080;font-weight:800;font-size:10px}
+.card.used{opacity:.6}
+.card.used::after{content:"USED";position:absolute;right:6px;top:6px;color:#ccc;font-weight:800;font-size:10px}
+.card.sel{outline:2px solid var(--sand)}
+.card .acts{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px}
+.card.back{align-items:center;justify-content:center;color:#fff8;font-weight:800;letter-spacing:.1em}
+.board{border:2px solid var(--sand2);border-radius:10px;background:var(--panel);padding:8px;display:grid;grid-template-columns:180px 1fr 340px;grid-template-rows:auto auto auto auto;gap:8px}
+.board.active{box-shadow:0 0 0 3px var(--orange)}
+.board .hd{grid-column:1/4;display:flex;align-items:center;gap:10px}
+.board .hd h2{font-size:16px;color:var(--sand)}
+.board .zone{background:#1b2436;border-radius:6px;padding:6px;min-height:60px}
+.board .zone h4{font-size:11px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;display:flex;justify-content:space-between}
+.board .zone h4 span{color:var(--sand)}
+.logi{display:flex;gap:3px;align-items:center}
+.logi i{display:inline-flex;width:22px;height:22px;border-radius:50%;border:1px solid var(--sand2);align-items:center;justify-content:center;font-style:normal;font-size:11px;color:var(--muted)}
+.logi i.on{background:var(--sand);color:#1b2130;font-weight:800}
+.wounded .card{filter:grayscale(.6)}
+.turnpanel{background:#2a2412;border:1px solid var(--orange);border-radius:var(--radius);padding:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.turnpanel .step{font-weight:700;color:var(--sand)}
+.hint{color:var(--muted);font-size:12px}
+.playarea{display:grid;grid-template-columns:1fr;gap:8px}
+.lane{display:flex;gap:8px;align-items:flex-start}
+.lane .lbl{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;text-transform:uppercase;color:var(--muted);font-weight:700;padding:4px 0}
+.decks{display:flex;gap:10px;flex-wrap:wrap}
+.deck{background:#1b2436;border-radius:6px;padding:6px 10px;font-size:12px;color:var(--muted)}
+.deck b{color:var(--ink)}
+/* modal */
+#modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+#modal.on{display:flex}
+#modal .box{background:#1b2130;border:1px solid var(--sand2);border-radius:10px;max-width:980px;width:100%;max-height:92vh;overflow:auto;padding:16px;box-shadow:0 10px 40px #000}
+#modal h2{color:var(--sand);font-size:17px;margin-bottom:6px}
+#modal .txt{color:var(--muted);margin-bottom:10px;white-space:pre-line}
+#modal .opts{display:flex;flex-wrap:wrap;gap:8px}
+#modal .opts .card{cursor:pointer}
+#modal .opts .card:hover{outline:2px solid var(--sand)}
+#modal .opts .card.off{opacity:.4;cursor:not-allowed}
+#modal .opts .card.off:hover{outline:none}
+#modal .foot{margin-top:12px;display:flex;gap:8px;justify-content:flex-end}
+.die{display:inline-flex;width:34px;height:34px;border-radius:7px;background:#fff;color:#111;font-weight:900;font-size:20px;align-items:center;justify-content:center;border:2px solid #333}
+.big{font-size:16px}
+.defeat{background:linear-gradient(180deg,#2a0d08,#0f0604);border:2px solid var(--orange);border-radius:10px;padding:30px;text-align:center}
+.defeat h1{color:var(--orange);font-size:40px;letter-spacing:.2em}
+.victory{background:linear-gradient(180deg,#0f2a14,#06110a);border:2px solid var(--green);border-radius:10px;padding:30px;text-align:center}
+.victory h1{color:#b7e39b;font-size:34px}
+table.score{margin:14px auto;border-collapse:collapse}
+table.score td,table.score th{padding:4px 12px;border-bottom:1px solid #fff2;text-align:left}
+#setup{max-width:720px;margin:30px auto}
+#setup label{display:flex;gap:8px;align-items:center;padding:4px 0}
+.rules h4{color:var(--sand);margin:10px 0 4px}
+.rules p,.rules li{color:var(--muted);margin:3px 0}
+.rules ul{padding-left:18px;margin:0}
+.kbd{font-size:11px;color:var(--muted)}
+@media (max-width:1100px){#app{grid-template-columns:1fr}aside{display:none}.board{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="title">ДРОНОВОДИ <small>Dronovody — online trainer (unofficial)</small></div>
+    <span class="pill" id="pRound"></span>
+    <span class="pill" id="pDuty"></span>
+    <div class="phasebar">
+      <span class="phase" id="ph0">Command</span><span class="phase" id="ph1">Threats</span><span class="phase" id="ph2">Recovery</span>
+    </div>
+    <span class="pill" id="pNet"></span><button class="sec sm" onclick="if(confirm('Leave the game?'))location.reload()">Leave</button>
+  </header>
+  <main id="main"></main>
+  <aside>
+    <div class="tabs"><button class="on" data-tab="log" onclick="tab('log')">Log</button><button data-tab="rules" onclick="tab('rules')">Rules</button><button data-tab="rulings" onclick="tab('rulings')">Rulings</button></div>
+    <div class="body" id="side"><div id="log"></div></div>
+  </aside>
+</div>
+<div id="modal"><div class="box" id="mbox"></div></div>
+
+<script>
+const DATA = {"characters": [{"id": "pilot_universal", "name": "Pilot (Universal)", "count": 4, "pilotTypes": ["mavic", "multirotor", "fpv", "wing"], "pilotBonus": 0, "crew": "Can fly any type of Drone", "hq": null, "starter": true}, {"id": "pilot_fpv", "name": "Pilot (FPV)", "count": 2, "pilotTypes": ["fpv", "mavic"], "pilotBonus": 1, "bonusTypes": ["fpv"], "crew": "When flying an FPV quadcopter +1 to the die result", "hq": null}, {"id": "pilot_multirotor", "name": "Pilot (Multirotor)", "count": 2, "pilotTypes": ["multirotor", "mavic"], "pilotBonus": 1, "bonusTypes": ["multirotor"], "crew": "When flying a Multirotor +1 to the die result", "hq": null}, {"id": "pilot_wing", "name": "Pilot (Wing)", "count": 2, "pilotTypes": ["wing", "mavic"], "pilotBonus": 1, "bonusTypes": ["wing"], "crew": "When flying a Wing +1 to the die result", "hq": null}, {"id": "engineer", "name": "Engineer", "count": 2, "pilotTypes": [], "crew": "Provides the Ammunition resource for each of your attacks", "crewProvides": "ammunition", "hq": "At any time, once per round, repair 1 of your drones", "hqRepair": true}, {"id": "it_specialist", "name": "IT Specialist", "count": 4, "pilotTypes": [], "crew": null, "hq": "At any time, once per round, repair 1 of your drones", "hqRepair": true}, {"id": "logistician", "name": "Logistician", "count": 2, "pilotTypes": [], "crew": null, "hq": "In each Recovery phase you gain +2 Logistics instead of +1", "hqRecoveryLogistics": 2}, {"id": "medic", "name": "Medic", "count": 4, "pilotTypes": [], "crew": "In each Threats phase discard 1 of your wounded into the deck. In the Command phase, you may discard a wounded Character with the Evacuation Action", "crewMedic": true, "hq": null}, {"id": "blogger", "name": "Blogger", "count": 2, "pilotTypes": [], "crew": "For a Combat Sortie Action you gain +1 Logistics", "crewSortieLogistics": 1, "hq": "Once per round you may exchange a Trophy for Logistics equal to the number on the card", "hqTrophyFullValue": true}, {"id": "psychologist", "name": "Psychologist", "count": 2, "pilotTypes": [], "crew": null, "hq": "When Recruiting, draw 2 extra Characters from the deck. You ignore the Trouble \"Psychological Exhaustion\"", "hqRecruitExtra": 2, "ignoresTrouble": "psychological_exhaustion"}, {"id": "sapper", "name": "Sapper", "count": 2, "pilotTypes": [], "crew": "Provides the Ammunition resource for each of your attacks. You ignore the Trouble \"Minefield\"", "crewProvides": "ammunition", "ignoresTrouble": "minefield", "hq": null}, {"id": "signalman", "name": "Signalman", "count": 2, "pilotTypes": [], "crew": null, "hq": "On your turn, once per round, you may take 2 Actions instead of 1", "hqExtraAction": true}], "drones": [{"id": "backfire", "name": "Backfire", "cost": 4, "type": "wing", "distances": [1, 2], "attacks": 2, "requires": ["recon", "ammunition"], "hitOn": 4, "breakdownOn": 1, "kamikaze": false, "recon": null, "antiUAV": false, "text": "Attacks up to 2 times at distance 1 or 2. To attack: Recon + Ammunition. On a failed attack: breakdown", "count": 1}, {"id": "darts", "name": "Darts", "cost": 1, "type": "wing", "distances": [2], "attacks": 1, "requires": ["ammunition"], "hitOn": 5, "breakdownOn": null, "kamikaze": true, "recon": null, "antiUAV": true, "text": "Attacks 1 time at distance 2. Can attack enemy UAVs. To attack: Ammunition. Discarded after the attack", "count": 2}, {"id": "fpv_kit", "name": "FPV Drone Kit", "cost": 2, "type": "fpv", "distances": [1], "attacks": 3, "requires": ["ammunition"], "hitOn": 5, "breakdownOn": null, "kamikaze": true, "recon": null, "antiUAV": true, "text": "Attacks 3 times at distance 1. Can attack enemy UAVs. To attack: Ammunition. Discarded after the attack", "count": 4}, {"id": "furia", "name": "Furia", "cost": 3, "type": "wing", "distances": [], "attacks": 0, "requires": [], "hitOn": null, "breakdownOn": null, "kamikaze": false, "recon": [1, 2], "artilleryReroll": true, "antiUAV": false, "text": "Provides Recon at distance 1 and 2. Lets you reroll the die when attacking with Artillery", "count": 1}, {"id": "kazhan", "name": "Kazhan", "cost": 3, "type": "multirotor", "distances": [1], "attacks": 2, "requires": ["recon", "ammunition"], "hitOn": 4, "breakdownOn": 1, "kamikaze": false, "recon": null, "antiUAV": false, "text": "Attacks up to 2 times at distance 1. To attack: Recon + Ammunition. On a failed attack: breakdown", "count": 1}, {"id": "kosa", "name": "Kosa", "cost": 2, "type": "wing", "distances": [2], "attacks": 1, "requires": ["ammunition"], "hitOn": 4, "breakdownOn": null, "kamikaze": true, "recon": null, "antiUAV": true, "text": "Attacks 1 time at distance 2. Can attack enemy UAVs. To attack: Ammunition. Discarded after the attack", "count": 2}, {"id": "leleka", "name": "Leleka", "cost": 3, "type": "wing", "distances": [], "attacks": 0, "requires": [], "hitOn": null, "breakdownOn": null, "kamikaze": false, "recon": [1, 2], "artilleryReroll": true, "antiUAV": false, "text": "Provides Recon at distance 1 and 2. Lets you reroll the die when attacking with Artillery", "count": 1}, {"id": "lucky_strike", "name": "Lucky Strike", "cost": 2, "type": "multirotor", "distances": [1], "attacks": 1, "requires": ["recon", "ammunition"], "hitOn": 4, "breakdownOn": 1, "kamikaze": false, "recon": null, "antiUAV": false, "text": "Attacks 1 time at distance 1. To attack: Recon + Ammunition. On a failed attack: breakdown", "count": 1}, {"id": "mavic", "name": "Mavic", "cost": 1, "type": "mavic", "distances": [1], "attacks": 1, "requires": [], "hitOn": 5, "breakdownOn": 1, "kamikaze": false, "recon": [1], "antiUAV": false, "anyPilot": true, "text": "Provides Recon at distance 1. Can attack 1 time at distance 1. On a failed attack: breakdown", "count": 4}, {"id": "punisher", "name": "Punisher", "cost": 3, "type": "wing", "distances": [1, 2], "attacks": 1, "requires": ["recon", "ammunition"], "hitOn": 4, "breakdownOn": 1, "kamikaze": false, "recon": null, "antiUAV": false, "text": "Attacks 1 time at distance 1 or 2. To attack: Recon + Ammunition. On a failed attack: breakdown", "count": 2}, {"id": "sych", "name": "Sych", "cost": 4, "type": "wing", "distances": [1, 2], "attacks": 2, "requires": ["recon", "ammunition"], "hitOn": 4, "breakdownOn": 1, "kamikaze": false, "recon": null, "antiUAV": false, "text": "Attacks up to 2 times at distance 1 or 2. To attack: Recon + Ammunition. On a failed attack: breakdown", "count": 1}, {"id": "valkyrie", "name": "Valkyrie", "cost": 2, "type": "wing", "distances": [], "attacks": 0, "requires": [], "hitOn": null, "breakdownOn": null, "kamikaze": false, "recon": [1], "artilleryReroll": true, "antiUAV": false, "text": "Provides Recon at distance 1. Lets you reroll the die when attacking with Artillery", "count": 1}, {"id": "vampir", "name": "Vampir", "cost": 4, "type": "multirotor", "distances": [1], "attacks": 3, "requires": ["recon", "ammunition"], "hitOn": 4, "breakdownOn": 1, "kamikaze": false, "recon": null, "antiUAV": false, "text": "Attacks up to 3 times at distance 1. To attack: Recon + Ammunition. On a failed attack: breakdown", "count": 1}], "support": [{"id": "ai_module", "type": "Project", "cost": 2, "name": "AI Module", "activation": ["IT Specialist"], "text": "Once per round, during an attack, 1 of your drones is guaranteed to hit the target", "oncePerRound": true, "count": 1}, {"id": "counter_battery_recon", "type": "Bonus", "cost": 0, "name": "Counter-Battery Recon", "text": "Until the end of the round, provides 1 Recon resource when attacking enemy cards: Artillery, MLRS, TOS", "provides": "recon", "targets": ["Artillery", "MLRS", "TOS"], "duration": "round", "count": 1}, {"id": "crpa_antennas", "type": "Project", "cost": 1, "name": "CRPA Antennas", "activation": ["Engineer"], "text": "Once per round, ignore the effect of enemy EW when attacking with your drone", "oncePerRound": true, "count": 1}, {"id": "delta_system", "type": "Project", "cost": 2, "name": "\"Delta\" System", "activation": ["IT Specialist"], "text": "Once per round, provides the Recon resource at distance 1 or 2", "oncePerRound": true, "provides": "recon", "distance": [1, 2], "count": 1}, {"id": "drone_ammunition", "type": "Bonus", "cost": 0, "name": "Drone Ammunition", "text": "Provides the Ammunition resource for 1 Combat Sortie", "provides": "ammunition", "uses": 1, "count": 3}, {"id": "drone_workshop", "type": "Project", "cost": 2, "name": "Drone Workshop", "activation": ["Engineer"], "text": "Once per round, take a drone from the discard pile for free, or repair your drone", "oncePerRound": true, "count": 1}, {"id": "drone_production", "type": "Project", "cost": 1, "name": "Drone Production", "activation": ["Logistician", "Engineer"], "text": "Once per round, take a drone from the Shop or the discard pile for 1 Logistics", "oncePerRound": true, "count": 1}, {"id": "dugout", "type": "Protection", "cost": 0, "name": "Dugout", "text": "Lasts until the end of the round. In the Threats phase you ignore one hit on a Character in the Crew", "duration": "round", "count": 3}, {"id": "ew_equipment", "type": "Protection", "cost": 0, "name": "EW Equipment", "text": "Lasts until the end of the round. In the Threats phase you ignore enemy drones", "duration": "round", "count": 2}, {"id": "frequency_hopping_repeaters", "type": "Project", "cost": 1, "name": "Frequency-Hopping Repeaters", "activation": ["Engineer", "Signalman"], "text": "All drones except Mavics get +1 to the die result when attacking", "passive": true, "count": 1}, {"id": "himars_m270", "type": "Artillery", "cost": 2, "name": "HIMARS and M270 Systems", "distance": [2], "requires": "recon", "hitOn": 2, "text": "After playing this card, attack a scouted target at distance 2", "count": 2}, {"id": "ipso", "type": "Project", "cost": 1, "name": "IPSO", "activation": ["Blogger", "Psychologist"], "text": "Once per turn, you may send an enemy APC, IFV or Infantry from the play area back to the Threat deck", "oncePerTurn": true, "count": 1}, {"id": "kropyva", "type": "Project", "cost": 1, "name": "\"Kropyva\" System", "activation": ["IT Specialist"], "text": "On each of your Artillery attacks, you may reroll the die", "passive": true, "artilleryReroll": true, "count": 1}, {"id": "nato_artillery", "type": "Artillery", "cost": 1, "name": "NATO-Standard Artillery System", "distance": [1, 2], "requires": "recon", "hitOn": 3, "text": "After playing this card, attack a scouted target at distance 1 or 2", "count": 2}, {"id": "neighbour_artillery", "type": "Artillery", "cost": 0, "name": "Neighbouring Unit's Artillery Battery", "distance": [1], "requires": "recon", "hitOn": 4, "text": "After playing this card, attack a scouted target at distance 1", "count": 3}, {"id": "stabilization_point", "type": "Project", "cost": 1, "name": "Stabilization Point", "activation": ["Medic"], "text": "Once per round you may discard any wounded Character into the deck. In the Command phase you may take the Evacuation Action", "oncePerRound": true, "evacDiscard": true, "count": 1}, {"id": "starlink", "type": "Bonus", "cost": 0, "name": "Starlink", "text": "After playing this card, take 2 actions instead of 1", "effect": "extraAction", "count": 1}, {"id": "targeted_programme", "type": "Bonus", "cost": 0, "name": "Targeted Programme", "text": "After playing this card, add +2 to the Logistics resource", "effect": "logistics:+2", "count": 1}, {"id": "transfer_order", "type": "Bonus", "cost": 0, "name": "Transfer Order", "text": "After playing this card, take any Character for yourself from the Trench or from another player", "effect": "transferCharacter", "count": 1}, {"id": "tsmtr", "type": "Project", "cost": 1, "name": "TsMTR", "activation": ["IT Specialist"], "text": "Once per round, play this card as any other activated Project of any player", "oncePerRound": true, "copyProject": true, "count": 1}, {"id": "uav_courses", "type": "Project", "cost": 2, "name": "UAV Courses", "activation": ["Pilot"], "text": "Once per round, add +1 to the die result of your drone", "oncePerRound": true, "count": 1}, {"id": "vezha", "type": "Project", "cost": 1, "name": "\"Vezha\" System", "activation": ["IT Specialist"], "text": "Use another player's Recon resource as your own", "passive": true, "shareRecon": true, "count": 1}, {"id": "volunteers", "type": "Bonus", "cost": 0, "name": "Volunteers", "text": "After playing this card, add +1 to the Logistics resource", "effect": "logistics:+1", "count": 3}], "threats": [{"id": "ammo_depot", "name": "Ammo Depot", "trophy": 0, "distance": 2, "activation": [], "icons": ["hourglass"], "category": "logistics", "text": "When hit, artillery, TOS and MLRS do not attack in this round's Threats phase", "onHit": "suppress:artillery,tos,mlrs", "count": 1}, {"id": "bmp2", "name": "BMP-2", "subtitle": "tracked infantry fighting vehicle", "trophy": 1, "distance": 1, "activation": [4], "icons": ["trench_hit"], "category": "ifv", "text": "On activation, wounds a Character in the Trench", "onActivate": "wound:trench:1", "count": 1}, {"id": "borisoglebsk2", "name": "Borisoglebsk-2", "subtitle": "EW system", "trophy": 4, "distance": 2, "activation": [], "icons": ["ongoing"], "triangle": true, "category": "ew", "text": "While in play, -1 to the die result of all your drones at distance 1 and 2", "ongoing": "dronePenalty:-1:dist1,2", "count": 1}, {"id": "btr82", "name": "BTR-82", "subtitle": "modernized with 30 mm cannon", "trophy": 2, "distance": 1, "activation": [1], "icons": ["trench_hit"], "category": "apc", "text": "On activation, wounds a Character in the Trench", "onActivate": "wound:trench:1", "count": 2}, {"id": "d30", "name": "D-30 Howitzer", "subtitle": "122 mm artillery", "trophy": 2, "distance": 1, "activation": [2], "icons": ["crew_hit"], "category": "artillery", "text": "On activation wounds a Character in your Crew", "onActivate": "wound:crew:1", "count": 2}, {"id": "kab500", "name": "KAB-500", "subtitle": "with glide module", "trophy": 0, "distance": null, "activation": [6], "icons": ["crew_hit"], "category": "kab", "text": "On activation, set aside 1 Character from your HQ; that Character is out for the rest of this game. The KAB card returns to the Threat deck", "onActivate": "removeHQ:1;returnToDeck", "count": 1}, {"id": "fuel_tanker", "name": "Fuel Tanker", "trophy": 0, "distance": 1, "activation": [], "icons": ["hourglass"], "category": "logistics", "text": "When hit, tanks, APCs and IFVs do not attack in this round's Threats phase", "onHit": "suppress:tank,apc,ifv", "count": 1}, {"id": "giatsint_s", "name": "Giatsint-S", "subtitle": "152 mm artillery", "trophy": 3, "distance": 2, "activation": [2], "icons": ["crew_hit"], "category": "artillery", "text": "On activation, wounds a Character in your Crew", "onActivate": "wound:crew:1", "count": 2}, {"id": "infantry_a", "name": "Infantry", "trophy": 0, "distance": 1, "activation": [1, 5, 6], "icons": ["trench_hit"], "category": "infantry", "text": "On activation, wounds a Character in the Trench and returns to the Threat deck", "onActivate": "wound:trench:1;returnToDeck", "count": 1}, {"id": "infantry_b", "name": "Infantry", "trophy": 0, "distance": 1, "activation": [1, 2, 3], "icons": ["trench_hit"], "category": "infantry", "text": "On activation, wounds a Character in the Trench and returns to the Threat deck", "onActivate": "wound:trench:1;returnToDeck", "count": 1}, {"id": "infantry_c", "name": "Infantry", "trophy": 0, "distance": 1, "activation": [3, 4, 5], "icons": ["trench_hit"], "category": "infantry", "text": "On activation, wounds a Character in the Trench and returns to the Threat deck", "onActivate": "wound:trench:1;returnToDeck", "count": 1}, {"id": "krasukha2", "name": "Krasukha-2", "subtitle": "electronic countermeasures system", "trophy": 5, "distance": 2, "activation": [], "icons": ["ongoing"], "triangle": true, "category": "ew", "text": "While in play, a die result of 4 on any Combat Sortie against any target is a miss", "ongoing": "roll4IsMiss", "count": 1}, {"id": "kushetka_b", "name": "Kushetka-B", "subtitle": "command and staff vehicle", "trophy": 3, "distance": 1, "activation": [], "icons": ["ongoing"], "triangle": true, "category": "command", "text": "When Infantry / Tank / IFV / APC is activated, immediately lay out one more card from the Threat deck", "ongoing": "onActivateCategories:infantry,tank,ifv,apc:drawThreat:1", "count": 1}, {"id": "lancet", "name": "Lancet", "subtitle": "enemy UAV", "trophy": 0, "distance": "drone", "activation": [1], "icons": ["crew_hit"], "category": "enemy_drone", "text": "On activation, wounds 2 Characters in your Crew, and then returns to the Threat deck", "onActivate": "wound:crew:2;returnToDeck", "count": 1}, {"id": "leer2", "name": "Leer-2", "subtitle": "EW system", "trophy": 3, "distance": 1, "activation": [2], "icons": ["drone_break", "ongoing"], "triangle": true, "category": "ew", "text": "On activation, breaks your most expensive drone. While in play, -1 to the die result of all your drones at distance 1", "onActivate": "breakMostExpensiveDrone", "ongoing": "dronePenalty:-1:dist1", "count": 1}, {"id": "msta_s", "name": "Msta-S SPG", "subtitle": "152 mm artillery", "trophy": 2, "distance": 1, "activation": [3], "icons": ["crew_hit"], "category": "artillery", "text": "On activation wounds a Character in your Crew", "onActivate": "wound:crew:1", "count": 3}, {"id": "orlan10", "name": "Orlan-10", "subtitle": "enemy UAV", "trophy": 3, "distance": "drone", "activation": [5], "icons": ["crew_hit", "trench_hit"], "category": "enemy_drone", "text": "On activation, attacks with all enemy artillery, TOS and MLRS cards, and then returns to the Threat deck", "onActivate": "activateCategories:artillery,tos,mlrs;returnToDeck", "count": 1}, {"id": "osa", "name": "Osa", "subtitle": "surface-to-air missile system", "trophy": 3, "distance": 1, "activation": [4], "icons": ["drone_hit"], "category": "sam", "text": "On activation, shoots down 1 of your drones of your choice, except the Mavic. When attacking this target with a drone: -1 to the die", "onActivate": "shootDownDrone:choice:exceptMavic", "attackPenalty": -1, "count": 1}, {"id": "redut_2us", "name": "Redut-2US", "subtitle": "mobile communications system", "trophy": 5, "distance": 2, "activation": [], "icons": ["ongoing"], "triangle": true, "category": "command", "text": "Each player with fewer than 2 wounded Characters at the end of the Threats phase rolls the enemy activation die again", "ongoing": "extraDefenseRollIfWoundedLT2", "count": 1}, {"id": "shipovnik_aero", "name": "Shipovnik-Aero", "subtitle": "EW system", "trophy": 4, "distance": 2, "activation": [3], "icons": ["drone_break", "ongoing"], "triangle": true, "category": "ew", "text": "On activation, breaks your most expensive drone. While in play, -1 to the die result of all your drones at distance 2", "onActivate": "breakMostExpensiveDrone", "ongoing": "dronePenalty:-1:dist2", "count": 1}, {"id": "t72", "name": "T-72 Tank", "subtitle": "with reactive armor", "trophy": 3, "distance": 1, "activation": [2, 3], "icons": ["armor", "trench_hit"], "category": "tank", "text": "On activation, wounds a Character in the Trench. Armor: -1 to drone attacks", "onActivate": "wound:trench:1", "attackPenalty": -1, "count": 3}, {"id": "tor", "name": "Tor", "subtitle": "surface-to-air missile system", "trophy": 4, "distance": 2, "activation": [5, 6], "icons": ["wing_hit"], "category": "sam", "text": "On activation, shoots down 1 of your Wing-type drones. When attacking this target with a drone: -1 to the die", "onActivate": "shootDownDrone:type:wing", "attackPenalty": -1, "count": 1}, {"id": "tornado_g", "name": "Tornado-G", "subtitle": "122 mm MLRS", "trophy": 4, "distance": 2, "activation": [3], "icons": ["crew_hit", "trench_hit"], "category": "mlrs", "text": "On activation, wounds 1 Character in the Trench and 1 in your Crew", "onActivate": "wound:trench:1;wound:crew:1", "count": 1}, {"id": "buratino", "name": "Buratino", "subtitle": "220 mm TOS", "trophy": 4, "distance": 2, "activation": [2], "icons": ["crew_hit", "trench_hit"], "category": "tos", "text": "On activation, wounds 1 Character in the Trench and 1 in your Crew", "onActivate": "wound:trench:1;wound:crew:1", "count": 1}, {"id": "tunguska", "name": "Tunguska", "subtitle": "anti-aircraft gun-missile system", "trophy": 3, "distance": 1, "activation": [1], "icons": ["drone_hit"], "category": "sam", "text": "On activation, shoots down 1 of your drones, your choice. When attacking this target with a drone: -1 to the die", "onActivate": "shootDownDrone:choice", "attackPenalty": -1, "count": 1}, {"id": "zala", "name": "Zala", "subtitle": "enemy UAV", "trophy": 2, "distance": "drone", "activation": [4], "icons": ["crew_hit"], "category": "enemy_drone", "text": "On activation, attacks with all enemy artillery cards at distance 1, and then returns to the Threat deck", "onActivate": "activateCategories:artillery:dist1;returnToDeck", "count": 1}, {"id": "zoopark_1m", "name": "Zoopark-1M", "subtitle": "counter-battery radar", "trophy": 4, "distance": 2, "activation": [], "icons": ["ongoing"], "triangle": true, "category": "radar", "text": "While in play, -2 to the die when attacking with Artillery from Support cards", "ongoing": "artilleryCardPenalty:-2", "count": 1}], "troubles": [{"id": "mobilization_disrupted", "name": "Mobilization Disrupted", "scope": "all", "flavor": "Enemy psyops or the misconduct of a few individuals, either way fewer people are willing to fight.", "text": "Until the end of the next round, all players take only 1 card when Recruiting instead of choosing from 2", "effect": "recruitOne", "duration": "nextRound"}, {"id": "rule_change_volunteers", "name": "Rule Change for Volunteers", "scope": "all", "flavor": "The bureaucrats know best how volunteering should be done", "text": "All players move their Logistics resource marker to 0 and cannot use the \"Volunteers\" Support card next round", "effect": "logisticsZero;banCard:volunteers", "duration": "nextRound"}, {"id": "poor_tourniquets", "name": "Poor-Quality Tourniquets in the First-Aid Kits", "scope": "self", "flavor": "Skimping on medical supplies costs dearly at the front, and soldiers' lives are priceless", "text": "Discard 1 Character from your player board and set it aside. That character is out for the rest of this game", "effect": "removeCharacter:choice"}, {"id": "minefield", "name": "Minefield Ahead", "scope": "self", "flavor": "And of course nobody has the minefield maps, and nobody knows who laid the mines", "text": "If you have no Sapper in your Crew, 1 of your Crew Characters becomes wounded", "effect": "wound:crew:1", "ignoredBy": "sapper:crew"}, {"id": "psychological_exhaustion", "name": "Psychological Exhaustion", "scope": "self", "flavor": "", "text": "If you have no Psychologist, place this card on one of your Characters. That Character cannot use their abilities and effects but still takes up a slot. They cannot be moved, but they can be wounded", "effect": "disableCharacter:choice", "ignoredBy": "psychologist:any", "persistent": true}, {"id": "pilots_to_infantry", "name": "Pilots to the Infantry!", "scope": "self", "flavor": "The commander said that if you lose the drones, he'll transfer you to the assault troops", "text": "If you have no drones at all (the Mavic doesn't count), your entire Crew immediately moves to the Trench", "effect": "crewToTrenchIfNoDrones"}, {"id": "initiative_in_army", "name": "Initiative in the Army...", "scope": "self", "flavor": "That's when, instead of \"do as you're told,\" you do what's actually needed... and then look for a lawyer.", "text": "Until the end of the next round, you may perform an Action only if another player has already performed it this round", "effect": "actionOnlyIfOtherDid", "duration": "nextRound"}, {"id": "logbooks", "name": "Logbooks Not Filled In, Tags Not Stuck On", "scope": "self", "flavor": "An inspection is on its way, a drill inspection is scheduled, and other army joys. Clean up the dugout", "text": "Next round you cannot attack with either drones or Support cards", "effect": "noAttacks", "duration": "nextRound"}, {"id": "wrong_font", "name": "Report in the Wrong Font, Redo It Immediately!", "scope": "self", "flavor": "Next round your fighters are bogged down in red tape. It's the army, after all.", "text": "In the Command phase you keep 3 cards in hand instead of 4, so next round you take 3 turns instead of 4, matching your number of cards", "effect": "handSize:3", "duration": "nextRound"}, {"id": "no_fly_weather", "name": "No-Fly Weather, but an Order Is an Order", "scope": "all", "flavor": "", "text": "All players roll a die as a check for each of their drones: on a 1 the drone is lost, on a 2 it is broken", "effect": "droneCheck:1lost:2broken"}]};
+</script>
+<script>
+/* ============================ UTIL ============================ */
+const rnd=n=>Math.floor(Math.random()*n);
+const roll=()=>1+rnd(6);
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
+let UID=0;
+const inst=(c,x={})=>Object.assign({},c,{uid:++UID},x);
+function buildDeck(list,x){const o=[];for(const c of list){for(let i=0;i<(c.count||1);i++)o.push(inst(c,x));}return shuffle(o);}
+const esc=s=>String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const cap=(s)=>s.charAt(0).toUpperCase()+s.slice(1);
+const CAT_LABEL={infantry:'Infantry',tank:'Tank',ifv:'IFV',apc:'APC',artillery:'Artillery',mlrs:'MLRS',tos:'TOS',ew:'EW',sam:'SAM/AA',enemy_drone:'Enemy UAV',command:'C2',radar:'Radar',logistics:'Logistics',kab:'Glide bomb'};
+const ACT_MAP={'IT Specialist':'it_specialist','Engineer':'engineer','Logistician':'logistician','Signalman':'signalman','Medic':'medic','Blogger':'blogger','Psychologist':'psychologist','Pilot':'PILOT'};
+
+/* ============================ STATE ============================ */
+let G=null;Object.defineProperty(window,"G",{get:()=>G});
+let SEAT=0,IS_HOST=true,NET=null,DECIDER=0,PENDING={},PROMPT_ID=0,LOBBY={players:[],code:''};
+const LOCAL=/local=1/.test(location.search);Object.defineProperty(window,"LOBBY",{get:()=>LOBBY});
+let AUTO=/auto=1/.test(location.search);
+
+function newPlayer(i,name){return{id:i,name,logistics:3,crew:[],hq:[],depot:[],hand:[],revealed:[],activated:[],protection:[],wounded:[],trophies:[],removed:[],
+  used:{},exchanged:false,counterBattery:false,dugoutUsed:false,cur:{},next:{},handSize:4};}
+
+function log(msg,cls){G.log.push({msg,cls});const el=document.getElementById('log');if(el){const d=document.createElement('div');d.textContent=msg;if(cls)d.className=cls;el.appendChild(d);el.parentElement.scrollTop=1e9;}}
+
+/* ============================ MODAL / PROMPTS ============================ */
+function ask(q){
+  if(NET&&IS_HOST&&DECIDER!==SEAT&&!AUTO_ALL)return remoteAsk(DECIDER,q);
+  return localAsk(q);
+}
+const AUTO_ALL=false;
+function remoteAsk(seat,q){
+  return new Promise(res=>{
+    const id=++PROMPT_ID;
+    const payload={id,title:q.title,text:q.text,cancel:q.cancel??null,cards:!!q.cards,multi:!!q.multi,min:q.min||0,max:q.max||99,
+      options:(q.options||[]).map(o=>({label:o.label,card:o.card||null,off:!!o.off,why:o.why||'',sec:!!o.sec}))};
+    PENDING[seat]={id,payload,resolve:v=>{delete PENDING[seat];res(v);},q};
+    const key=Object.keys(SEATKEY).find(k=>SEATKEY[k]===seat);if(key)NET.send(key,{type:'prompt',payload});
+    showWaiting(`Waiting for ${G&&G.players[seat]?G.players[seat].name:'player'} — ${q.title}`);
+  });
+}
+function answerFromClient(seat,id,ans){
+  const pnd=PENDING[seat];if(!pnd||pnd.id!==id)return;
+  const opts=pnd.q.options||[];let v=null;
+  if(ans===null||ans===undefined)v=null;
+  else if(Array.isArray(ans))v=ans.map(i=>opts[i]&&opts[i].value);
+  else v=opts[ans]?opts[ans].value:null;
+  hideWaiting();pnd.resolve(v);
+}
+function showWaiting(t){const m=document.getElementById('modal'),b=document.getElementById('mbox');b.innerHTML=`<h2>⏳ ${esc(t)}</h2><div class="txt">The other player is deciding. You can scroll the board meanwhile.</div>`;m.classList.add('on');m.style.pointerEvents='none';m.style.background='#0004';}
+function hideWaiting(){const m=document.getElementById('modal');m.classList.remove('on');m.style.pointerEvents='';m.style.background='';}
+function localAsk({title,text,options=[],cancel=null,cards=false,multi=false,min=0,max=99}){
+  return new Promise(res=>{
+    if(AUTO){ // random auto-play for smoke tests
+      const ok=options.filter(o=>!o.off);
+      if(multi){const k=Math.min(ok.length,Math.max(min,rnd(max-min+1)+min));res(shuffle(ok.slice()).slice(0,k).map(o=>o.value));return;}
+      if(cancel!==null && (ok.length===0||Math.random()<0.15)){res(null);return;}
+      if(ok.length===0){res(null);return;}
+      res(ok[rnd(ok.length)].value);return;
+    }
+    const m=document.getElementById('modal'),b=document.getElementById('mbox');
+    let sel=new Set();
+    const draw=()=>{
+      b.innerHTML=`<h2>${esc(title)}</h2>${text?`<div class="txt">${text}</div>`:''}<div class="opts" id="mopts"></div><div class="foot" id="mfoot"></div>`;
+      const o=b.querySelector('#mopts');
+      options.forEach((op,i)=>{
+        let el;
+        if(cards&&op.card){el=document.createElement('div');el.innerHTML=cardHTML(op.card,{noActs:true});el=el.firstElementChild;if(op.label)el.insertAdjacentHTML('beforeend',`<div class="chips"><span class="chip">${esc(op.label)}</span></div>`);}
+        else{el=document.createElement('button');el.textContent=op.label;if(op.sec)el.classList.add('sec');}
+        if(op.off){el.classList.add('off');el.disabled=true;el.title=op.why||'';}
+        if(sel.has(i))el.classList.add('sel');
+        el.onclick=()=>{if(op.off)return;if(multi){sel.has(i)?sel.delete(i):sel.add(i);if(sel.size>max){sel.delete(i);}draw();}else{m.classList.remove('on');res(op.value);}};
+        o.appendChild(el);
+      });
+      const f=b.querySelector('#mfoot');
+      if(multi){const ok=document.createElement('button');ok.textContent=`Confirm (${sel.size})`;ok.disabled=sel.size<min;ok.onclick=()=>{m.classList.remove('on');res([...sel].map(i=>options[i].value));};f.appendChild(ok);}
+      if(cancel!==null){const c=document.createElement('button');c.className='sec';c.textContent=cancel||'Cancel';c.onclick=()=>{m.classList.remove('on');res(null);};f.appendChild(c);}
+    };
+    draw();m.classList.add('on');
+  });
+}
+async function notify(title,text,btn='OK'){return ask({title,text,options:[{label:btn,value:1}]});}
+async function pickCard(title,text,list,{cancel=null,labelFn=null,offFn=null}={}){
+  return ask({title,text,cards:true,cancel,options:list.map(c=>({card:c,value:c,label:labelFn?labelFn(c):null,off:offFn?!!offFn(c):false,why:offFn?offFn(c):''}))});
+}
+async function pickCards(title,text,list,min,max){return ask({title,text,cards:true,multi:true,min,max,options:list.map(c=>({card:c,value:c}))});}
+
+/* ============================ CARD RENDERING ============================ */
+function dieChips(vals){return (vals||[]).map(v=>`<span class="chip die">🎲${v}</span>`).join('');}
+function cardHTML(c,opt={}){
+  let cls='card',chips='',body='',sub='';
+  if(c.kind==='threat'){
+    if(c.isTrouble){cls+=' trouble';chips=`<span class="chip tr">TROUBLE</span><span class="chip">${c.scope==='all'?'All players':'One player'}</span>`;body=(c.flavor?`<div class="sub">${esc(c.flavor)}</div>`:'')+`<div class="tx">${esc(c.text)}</div>`;}
+    else{cls+=' threat';
+      chips=`<span class="chip tr">★${c.trophy}</span>`+(c.distance===1||c.distance===2?`<span class="chip d${c.distance}">Dist ${c.distance}</span>`:c.distance==='drone'?`<span class="chip">UAV</span>`:`<span class="chip">Air</span>`)+dieChips(c.activation)+(c.triangle?`<span class="chip warn">△</span>`:'')+(c.attackPenalty?`<span class="chip warn">${c.attackPenalty} to hit</span>`:'')+`<span class="chip">${CAT_LABEL[c.category]||c.category}</span>`;
+      sub=c.subtitle?`<div class="sub">${esc(c.subtitle)}</div>`:'';body=`<div class="tx">${esc(c.text)}</div>`;}
+  }else if(c.kind==='support'){
+    cls+=(c.type==='Project'?' project':' support');
+    chips=`<span class="chip cost">◈${c.cost}</span><span class="chip">${c.type}</span>`;
+    if(c.type==='Artillery')chips+=c.distance.map(d=>`<span class="chip d${d}">D${d}</span>`).join('')+`<span class="chip">👁 recon</span><span class="chip die">${c.hitOn}+</span>`;
+    if(c.type==='Project')sub=`<div class="sub">Activation: ${c.activation.join(' + ')}</div>`;
+    body=`<div class="tx">${esc(c.text)}</div>`;
+  }else if(c.kind==='drone'){
+    cls+=' drone';
+    chips=`<span class="chip cost">◈${c.cost}</span><span class="chip">${cap(c.type)}</span>`+(c.distances||[]).map(d=>`<span class="chip d${d}">D${d}</span>`).join('')+(c.attacks?`<span class="chip">⚔×${c.attacks}</span><span class="chip die">${c.hitOn}+</span>`:'')+(c.breakdownOn?`<span class="chip warn">1=break</span>`:'')+(c.kamikaze?`<span class="chip warn">kamikaze</span>`:'')+(c.recon?`<span class="chip">👁 D${c.recon.join('/')}</span>`:'')+(c.antiUAV?`<span class="chip">anti-UAV</span>`:'')+(c.requires&&c.requires.length?`<span class="chip">needs ${c.requires.join('+')}</span>`:'');
+    body=`<div class="tx">${esc(c.text)}</div>`;
+  }else if(c.kind==='char'){
+    cls+=' char';
+    chips=c.pilotTypes.length?`<span class="chip">Pilot: ${c.pilotTypes.map(cap).join('/')}${c.pilotBonus?' +1':''}</span>`:`<span class="chip">Specialist</span>`;
+    body=(c.crew?`<div class="tx"><b>Crew:</b> ${esc(c.crew)}</div>`:'')+(c.hq?`<div class="tx"><b>HQ:</b> ${esc(c.hq)}</div>`:'');
+    if(c.disabled)cls+=' disabled';
+  }
+  if(c.broken)cls+=' broken';
+  if(c.usedFlag)cls+=' used';
+  const acts=(!opt.noActs&&opt.acts)?`<div class="acts">${opt.acts}</div>`:'';
+  return `<div class="${cls}" data-uid="${c.uid}"><div class="nm">${esc(c.name)}</div>${sub}<div class="chips">${chips}</div>${body}${acts}</div>`;
+}
+
+/* ============================ SETUP ============================ */
+function renderSetup(){
+  document.getElementById('main').innerHTML=`<div id="setup" class="section">
+    <h2 style="color:var(--sand);margin-bottom:8px">Set up the table</h2>
+    <p class="hint">Cooperative game: all players may show their cards and coordinate, but each makes their own decisions. Nothing is hidden on this screen, so just pass the mouse.</p>
+    <label>Players <select id="sPlayers"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
+    <div class="row" style="gap:16px"><label>P1 name <input id="n0" value="Alpha"></label><label>P2 name <input id="n1" value="Bravo"></label><label>P3 <input id="n2" value="Charlie"></label><label>P4 <input id="n3" value="Delta"></label></div>
+    <label><input type="checkbox" id="sFirst" checked> First game: remove △ (ongoing-effect) enemy cards from the Threat deck</label>
+    <h4 style="color:var(--sand);margin-top:10px">Rules for experienced players (optional)</h4>
+    <label><input type="checkbox" id="sDelayed"> Delayed Rotation — 6 rounds instead of 4</label>
+    <label><input type="checkbox" id="sRandom"> Random Start — random Character and Drone instead of Universal Pilot + Mavic</label>
+    <label><input type="checkbox" id="sFog"> Fog of War — lay out new Threats first, then roll for activation</label>
+    <label><input type="checkbox" id="sHorde"> Horde — 4 Threat cards per player instead of 3</label>
+    <p class="hint">ISTAR (Support card draft) is not implemented.</p>
+    <div style="margin-top:12px"><button class="big" onclick="begin()">Deploy</button></div>
+  </div>`;
+}
+async function begin(){
+  const n=+document.getElementById('sPlayers').value;
+  const names=[0,1,2,3].map(i=>document.getElementById('n'+i).value||('P'+(i+1)));
+  const opts={firstGame:document.getElementById('sFirst').checked,delayed:document.getElementById('sDelayed').checked,random:document.getElementById('sRandom').checked,fog:document.getElementById('sFog').checked,horde:document.getElementById('sHorde').checked};
+  await startGame(n,names,opts);
+}
+async function startGame(n,names,opts){
+  G={players:[],decks:{},trench:[],shop:[],playArea:[],round:0,maxRound:opts.delayed?6:4,phase:0,duty:0,active:0,log:[],over:false,opts,suppressed:new Set(),turn:null,actionsThisRound:new Set(),n};
+  for(let i=0;i<n;i++)G.players.push(newPlayer(i,names[i]));
+  // decks
+  G.decks.char=buildDeck(DATA.characters,{kind:'char'});
+  G.decks.drone=buildDeck(DATA.drones,{kind:'drone',broken:false});
+  G.decks.droneDiscard=[];
+  G.decks.support=buildDeck(DATA.support,{kind:'support'});G.decks.supportDiscard=[];
+  let threats=buildDeck(DATA.threats,{kind:'threat'}).concat(buildDeck(DATA.troubles,{kind:'threat',isTrouble:true}));
+  if(opts.firstGame)threats=threats.filter(c=>!c.triangle);
+  shuffle(threats);
+  // starting enemies: distance 1 only
+  const starters=[];
+  for(let i=0;i<3*n;i++){const k=threats.findIndex(c=>!c.isTrouble&&c.distance===1);if(k<0)break;starters.push(threats.splice(k,1)[0]);}
+  G.playArea=starters;G.decks.threat=shuffle(threats);G.decks.threatDiscard=[];
+  // players
+  for(const p of G.players){
+    if(opts.random){p.crew.push(G.decks.char.pop());p.depot.push(G.decks.drone.pop());}
+    else{
+      const k=G.decks.char.findIndex(c=>c.id==='pilot_universal');p.crew.push(G.decks.char.splice(k,1)[0]);
+      const m=G.decks.drone.findIndex(c=>c.id==='mavic');p.depot.push(G.decks.drone.splice(m,1)[0]);
+    }
+  }
+  for(let i=0;i<3*n;i++)G.trench.push(G.decks.char.pop());
+  for(let i=0;i<3;i++)G.shop.push(G.decks.drone.pop());
+  log(`Game start: ${n} player(s). ${G.maxRound} rounds. Trench: ${G.trench.length} Characters. ${G.playArea.length} enemies at distance 1.`,'rnd');
+  render();
+  for(const p of G.players){drawSupport(p,5);await discardDownTo(p,4,'Starting hand: discard 1 Support card');}
+  tab('log');
+  await gameLoop();
+}
+function drawSupport(p,k){for(let i=0;i<k;i++){if(!G.decks.support.length){if(!G.decks.supportDiscard.length)break;G.decks.support=shuffle(G.decks.supportDiscard);G.decks.supportDiscard=[];log('Support deck reshuffled from discard.');}p.hand.push(G.decks.support.pop());}}
+async function discardDownTo(p,k,title){
+  DECIDER=p.id;while(p.hand.length>k){render();const c=await pickCard(`${p.name} — ${title}`,`Keep ${k}. Hand: ${p.hand.length}.`,p.hand);discardSupport(p,c);}
+}
+function discardSupport(p,c){const i=p.hand.indexOf(c);if(i>=0)p.hand.splice(i,1);G.decks.supportDiscard.push(c);}
+function drawThreat(){if(!G.decks.threat.length){if(!G.decks.threatDiscard.length)return null;G.decks.threat=shuffle(G.decks.threatDiscard);G.decks.threatDiscard=[];log('Threat deck reshuffled from discard.');}return G.decks.threat.pop();}
+function returnThreat(c){G.decks.threat.splice(rnd(G.decks.threat.length+1),0,c);}
+function charToBottom(c){c.disabled=false;G.decks.char.unshift(c);}
+function drawChar(){if(!G.decks.char.length)return null;return G.decks.char.pop();}
+
+/* ============================ QUERIES ============================ */
+const board=p=>p.crew.concat(p.hq);
+const activeChars=list=>list.filter(c=>!c.disabled);
+const inCrew=(p,id)=>activeChars(p.crew).some(c=>c.id===id);
+const inHQ=(p,id)=>activeChars(p.hq).some(c=>c.id===id);
+const onBoard=(p,id)=>activeChars(board(p)).some(c=>c.id===id);
+const hasAct=(p,id)=>p.activated.some(c=>c.id===id);
+const others=p=>G.players.filter(q=>q!==p);
+function pilotFor(p,d){
+  const pilots=activeChars(p.crew).filter(c=>c.pilotTypes.length&&(c.pilotTypes.includes(d.type)||d.anyPilot));
+  if(!pilots.length)return null;
+  pilots.sort((a,b)=>bonusOf(b,d)-bonusOf(a,d));return pilots[0];
+}
+const bonusOf=(c,d)=>(c.bonusTypes&&c.bonusTypes.includes(d.type))?1:0;
+function hasAmmoCrew(p){return inCrew(p,'engineer')||inCrew(p,'sapper');}
+function reconSources(p,dist,target,viaVezha){
+  const s=[];
+  for(const d of p.depot){if(!d.broken&&d.recon&&d.recon.includes(dist)&&pilotFor(p,d))s.push({label:`${d.name} (recon D${dist})`,consume:null});}
+  if(hasAct(p,'delta_system')&&!p.used.delta_system)s.push({label:'"Delta" System (once/round)',consume:()=>{p.used.delta_system=true;}});
+  if(p.counterBattery&&target&&['artillery','mlrs','tos'].includes(target.category))s.push({label:'Counter-Battery Recon',consume:null});
+  if(!viaVezha&&hasAct(p,'vezha')){for(const q of others(p))for(const x of reconSources(q,dist,target,true))s.push({label:`${q.name}: ${x.label} via "Vezha"`,consume:x.consume});}
+  return s;
+}
+function ewPenalty(dist){let n=0;for(const c of G.playArea){if(c.isTrouble)continue;if(c.id==='leer2'&&dist===1)n--;if(c.id==='shipovnik_aero'&&dist===2)n--;if(c.id==='borisoglebsk2'&&(dist===1||dist===2))n--;}return n;}
+const krasukha=()=>G.playArea.some(c=>c.id==='krasukha2');
+const zoopark=()=>G.playArea.some(c=>c.id==='zoopark_1m');
+function canEvacuate(p){return inCrew(p,'medic')||hasAct(p,'stabilization_point');}
+function totalActivated(){return G.players.reduce((a,p)=>a+p.activated.length,0);}
+function charsFor(p,req){ // returns list of chars on board satisfying activation reqs, or null
+  const pool=board(p).slice();const out=[];
+  for(const r of req){const id=ACT_MAP[r];const k=pool.findIndex(c=>id==='PILOT'?c.pilotTypes.length>0:c.id===id);if(k<0)return null;out.push(pool.splice(k,1)[0]);}
+  return out;
+}
+
+/* ============================ NET SYNC ============================ */
+function snapshot(){return JSON.stringify(G,(k,v)=>{if(typeof v==='function')return undefined;if(v instanceof Set)return{__set:[...v]};return v;});}
+let LOGN=0;
+function applyState(json){
+  G=JSON.parse(json,(k,v)=>(v&&v.__set)?new Set(v.__set):v);
+  if(G.turn)G.turn.resolve=()=>{};
+  // log sync
+  const el=document.getElementById('log');
+  if(el){if(LOGN>G.log.length){el.innerHTML='';LOGN=0;}for(let i=LOGN;i<G.log.length;i++){const d=document.createElement('div');d.textContent=G.log[i].msg;if(G.log[i].cls)d.className=G.log[i].cls;el.appendChild(d);}el.parentElement.scrollTop=1e9;}
+  LOGN=G.log.length;
+  render();
+}
+/* ============================ RENDER ============================ */
+function render(){
+  if(!G)return;
+  if(NET&&IS_HOST)NET.broadcast({type:'state',g:snapshot()});
+  document.getElementById('pNet').innerHTML=NET?`Room <b>${esc(LOBBY.code)}</b> · you are <b>${esc(G.players[SEAT]?G.players[SEAT].name:'?')}</b>${IS_HOST?' (host)':''}`:'';
+  document.getElementById('pRound').innerHTML=`Round <b>${G.round||'–'}</b> / ${G.maxRound}`;
+  document.getElementById('pDuty').innerHTML=`Duty Officer: <b>${G.players[G.duty].name}</b>`;
+  [0,1,2].forEach(i=>document.getElementById('ph'+i).classList.toggle('on',G.phase===i));
+  const m=document.getElementById('main');
+  if(G.over){m.innerHTML=G.over.html;return;}
+  let h='';
+  // turn panel
+  if(G.turn&&G.turn.pi!==SEAT){const p=G.players[G.turn.pi];h+=`<div class="turnpanel"><span class="step">⏳ ${esc(p.name)}'s turn</span><span class="hint">Watch the board and plan — it's cooperative, you can talk it through.</span></div>`;}
+  else if(G.turn){const t=G.turn,p=G.players[t.pi];
+    h+=`<div class="turnpanel"><span class="step">▶ Your turn, ${esc(p.name)}</span>`;
+    if(!t.cardPlayed)h+=`<span>Step 1 — play or discard one Support card from hand (click a card in hand).</span>`;
+    else{h+=`<span>Step 2 — Action${t.actions>1?'s':''} left: <b>${t.actions}</b></span>`;
+      const dis=(a)=>actionBlocked(p,a);
+      h+=`<button ${t.actions<1||dis('recruit')?'disabled':''} title="${esc(dis('recruit')||'')}" onclick="doAction('recruit')">Recruit</button>`;
+      h+=`<button ${t.actions<1||dis('move')?'disabled':''} title="${esc(dis('move')||'')}" onclick="doAction('move')">Move</button>`;
+      h+=`<button ${t.actions<1||dis('evacuate')?'disabled':''} title="${esc(dis('evacuate')||'')}" onclick="doAction('evacuate')">Evacuate</button>`;
+      h+=`<button ${t.actions<1||dis('buy')?'disabled':''} title="${esc(dis('buy')||'')}" onclick="doAction('buy')">Buy drone</button>`;
+      h+=`<button ${t.actions<1||dis('sortie')?'disabled':''} title="${esc(dis('sortie')||'')}" onclick="doAction('sortie')">Combat sortie</button>`;
+      h+=`<button class="sec" onclick="endTurn()">End turn</button>`;}
+    if(t.ammoCard)h+=`<span class="chip">Drone Ammunition ready</span>`;
+    if(p.cur.noAttacks)h+=`<span class="chip warn">Logbooks: no attacks this round</span>`;
+    if(p.cur.initiative)h+=`<span class="chip warn">Initiative: only actions another player already did this round</span>`;
+    if(p.cur.recruitOne)h+=`<span class="chip warn">Mobilization disrupted: recruit draws 1</span>`;
+    h+=`<span class="hint" style="flex-basis:100%">Free at any time: activate a revealed Project, use Character/Project effects, exchange one trophy per round.</span></div>`;
+  }else if(G.phaseNote){h+=`<div class="turnpanel"><span class="step">${G.phaseNote}</span></div>`;}
+  // play area
+  const d1=G.playArea.filter(c=>c.distance===1),d2=G.playArea.filter(c=>c.distance===2),air=G.playArea.filter(c=>c.distance!==1&&c.distance!==2);
+  h+=`<div class="section"><h3>Play area <span class="pill">Trench: <b>${G.trench.length}</b> Characters</span><span class="pill">Threat deck <b>${G.decks.threat.length}</b></span>${G.suppressed.size?`<span class="pill">Suppressed this round: <b>${[...G.suppressed].map(x=>CAT_LABEL[x]).join(', ')}</b></span>`:''}</h3>
+    <div class="playarea">
+      <div class="lane"><div class="lbl">Dist 1</div><div class="cards">${d1.map(c=>cardHTML(c)).join('')||'<span class="hint">— empty —</span>'}</div></div>
+      <div class="lane"><div class="lbl">Dist 2</div><div class="cards">${d2.map(c=>cardHTML(c)).join('')||'<span class="hint">— empty —</span>'}</div></div>
+      ${air.length?`<div class="lane"><div class="lbl">Air</div><div class="cards">${air.map(c=>cardHTML(c)).join('')}</div></div>`:''}
+    </div></div>`;
+  // shop
+  h+=`<div class="section"><h3>Drone shop <span class="pill">Drone deck <b>${G.decks.drone.length}</b> · discard <b>${G.decks.droneDiscard.length}</b></span><span class="pill">Support deck <b>${G.decks.support.length}</b></span><span class="pill">Character deck <b>${G.decks.char.length}</b></span></h3><div class="cards">${G.shop.map(c=>cardHTML(c)).join('')}</div></div>`;
+  // boards
+  for(const p of [...G.players].sort((a,b)=>(a.id===SEAT?-1:0)-(b.id===SEAT?-1:0)))h+=boardHTML(p);
+  m.innerHTML=h;
+}
+function boardHTML(p){
+  const act=G.turn&&G.turn.pi===p.id&&p.id===SEAT;
+  const me=act?p:null;
+  const charActs=(c,zone)=>{let a='';
+    if(me&&zone==='hq'&&(c.id==='engineer'||c.id==='it_specialist')&&!c.disabled&&p.depot.some(d=>d.broken))a+=`<button class="sm" onclick="useRepair(${c.uid})" ${p.used['repair'+c.uid]?'disabled':''}>Repair drone</button>`;
+    if(me&&zone==='hq'&&c.id==='signalman'&&!c.disabled&&G.turn.cardPlayed&&!G.turn.signalUsed&&!p.used.signalman)a+=`<button class="sm" onclick="useSignalman()">+1 Action (once/round)</button>`;
+    return a;};
+  const projActs=(c)=>{if(!me)return'';let a='';
+    const fx={drone_workshop:'Workshop',drone_production:'Production (◈1)',stabilization_point:'Discard a wounded',ipso:'Send APC/IFV/Infantry back',tsmtr:'Copy a Project'};
+    if(fx[c.id]&&!p.used[c.id])a+=`<button class="sm" onclick="useProject('${c.id}')">${fx[c.id]}</button>`;
+    return a;};
+  const revActs=(c)=>me?`<button class="sm" onclick="activateProject(${c.uid})" ${charsFor(p,c.activation)?'':'disabled title="Required Characters not on board"'}>Activate</button>`:'';
+  const trophyActs=(c)=>me&&!p.exchanged&&c.trophy>0?`<button class="sm" onclick="exchangeTrophy(${c.uid})">Exchange → ◈${inHQ(p,'blogger')?c.trophy:(c.trophy===1?1:2)}</button>`:'';
+  const handActs=(c)=>me&&!G.turn.cardPlayed?`<button class="sm" onclick="playCard(${c.uid})" ${c.cost>p.logistics?'disabled title="Not enough Logistics"':''}>Play</button><button class="sm sec" onclick="discardCard(${c.uid})">Discard</button>`:'';
+  const logi=Array.from({length:10},(_,i)=>`<i class="${i===p.logistics?'on':''}">${i}</i>`).join('');
+  const w=[];for(const k in p.cur)if(p.cur[k])w.push(k);
+  return `<div class="board ${act?'active':''}">
+    <div class="hd"><h2>${esc(p.name)}</h2>${G.duty===p.id?'<span class="chip tr">Duty Officer</span>':''}<span class="logi">◈ ${logi}</span><span class="pill">Wounded <b style="color:${p.wounded.length>=3?'#f88':'inherit'}">${p.wounded.length}</b>/4</span><span class="pill">Trophies <b>${p.trophies.reduce((a,c)=>a+c.trophy,0)}</b> pts</span><span class="pill">Projects activated <b>${p.activated.length}</b></span>${p.removed.length?`<span class="pill">Lost for good: ${p.removed.map(c=>c.name).join(', ')}</span>`:''}</div>
+    <div class="zone" style="grid-column:1;grid-row:2/4"><h4>Drone depot <span>${p.depot.length}/3</span></h4><div class="cards">${p.depot.map(c=>cardHTML(c)).join('')}</div>
+      <h4 style="margin-top:8px">Activated projects <span>${p.activated.length}</span></h4><div class="cards">${p.activated.map(c=>cardHTML(Object.assign({},c,{usedFlag:!!p.used[c.id]}),{acts:projActs(c)})).join('')}</div></div>
+    <div class="zone" style="grid-column:2;grid-row:2"><h4>Crew <span>${p.crew.length}/4</span></h4><div class="cards">${p.crew.map(c=>cardHTML(c,{acts:charActs(c,'crew')})).join('')||'<span class="hint">empty</span>'}</div></div>
+    <div class="zone" style="grid-column:3;grid-row:2/4"><h4>Revealed projects <span>${p.revealed.length}</span></h4><div class="cards">${p.revealed.map(c=>cardHTML(c,{acts:revActs(c)})).join('')}</div>
+      <h4 style="margin-top:8px">Bonuses & protection</h4><div class="cards">${p.protection.map(c=>cardHTML(c)).join('')}${p.counterBattery?'<span class="chip">Counter-Battery Recon (this round)</span>':''}</div></div>
+    <div class="zone" style="grid-column:2;grid-row:3"><h4>HQ <span>${p.hq.length}/3 · +1 ◈ each in Recovery</span></h4><div class="cards">${p.hq.map(c=>cardHTML(c,{acts:charActs(c,'hq')})).join('')||'<span class="hint">empty</span>'}</div></div>
+    <div class="zone" style="grid-column:1/4;grid-row:4"><div class="row">
+      <div style="flex:2"><h4>Hand <span>${p.hand.length}</span></h4><div class="cards">${p.hand.map(c=>cardHTML(c,{acts:handActs(c)})).join('')}</div></div>
+      <div style="flex:1"><h4>Trophies</h4><div class="cards">${p.trophies.map(c=>cardHTML(c,{acts:trophyActs(c)})).join('')||'<span class="hint">none</span>'}</div></div>
+      <div style="flex:1" class="wounded"><h4>Wounded (−3 pts each at end)</h4><div class="cards">${p.wounded.map(c=>cardHTML(c)).join('')||'<span class="hint">none</span>'}</div></div>
+    </div></div>
+  </div>`;
+}
+function tab(t){document.querySelectorAll('aside .tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));const s=document.getElementById('side');
+  if(t==='log'){s.innerHTML='<div id="log"></div>';const el=document.getElementById('log');if(G)for(const e of G.log){const d=document.createElement('div');d.textContent=e.msg;if(e.cls)d.className=e.cls;el.appendChild(d);}s.scrollTop=1e9;}
+  else if(t==='rules')s.innerHTML=RULES_HTML;else s.innerHTML=RULINGS_HTML;}
+
+/* ============================ GAME LOOP ============================ */
+async function gameLoop(){
+  for(G.round=1;G.round<=G.maxRound&&!G.over;G.round++){
+    log(`— Round ${G.round} —`,'rnd');
+    G.actionsThisRound=new Set();
+    await commandPhase();if(G.over)break;
+    await threatsPhase();if(G.over)break;
+    if(G.round<G.maxRound)await recoveryPhase();
+  }
+  if(!G.over)endGame('rotation');
+}
+function order(){const o=[];for(let i=0;i<G.n;i++)o.push(G.players[(G.duty+i)%G.n]);return o;}
+
+/* ---------- Command ---------- */
+async function commandPhase(){
+  G.phase=0;G.phaseNote=null;
+  while(!G.over&&G.players.some(p=>p.hand.length)){
+    for(const p of order()){
+      if(G.over)return;
+      if(!p.hand.length)continue;
+      await playerTurn(p);
+      if(G.over)return;
+    }
+  }
+}
+function playerTurn(p){
+  return new Promise(res=>{
+    DECIDER=p.id;
+    G.turn={pi:p.id,cardPlayed:false,actions:0,ammoCard:false,resolve:res,signalUsed:false,busy:false};
+    log(`${p.name}'s turn.`);render();
+    if(AUTO)setTimeout(()=>autoTurn(p),0);
+  });
+}
+async function autoTurn(p){
+  const t=G.turn;if(!t)return;
+  // free: activate a project if possible
+  for(const c of p.revealed.slice()){if(charsFor(p,c.activation)&&Math.random()<0.6){await new Promise(r=>{activateProject(c.uid);const w=()=>G.turn&&G.turn.busy?setTimeout(w,5):r();setTimeout(w,5);});}}
+  if(!G.turn||G.over)return;
+  const playable=p.hand.filter(c=>c.cost<=p.logistics);
+  await new Promise(r=>{if(playable.length&&Math.random()<0.8)playCard(playable[rnd(playable.length)].uid);else discardCard(p.hand[0].uid);const w=()=>G.turn&&G.turn.busy?setTimeout(w,5):r();setTimeout(w,5);});
+  let guardN=0;
+  while(G.turn&&!G.over&&G.turn.actions>0&&guardN++<6){
+    const acts=['recruit','move','evacuate','buy','sortie'].filter(a=>!actionBlocked(p,a));
+    if(!acts.length)break;
+    const a=acts[rnd(acts.length)];
+    await new Promise(r=>{doAction(a);const w=()=>G.turn&&G.turn.busy?setTimeout(w,5):r();setTimeout(w,5);});
+    if(G.turn&&G.turn.actions>0&&Math.random()<0.3)break;
+  }
+  if(G.turn&&!G.over)endTurn();
+}
+function endTurn(){const t=G.turn;if(!t||t.busy)return;G.turn=null;render();t.resolve();}
+function actionBlocked(p,a){
+  if(p.cur.initiative&&!G.actionsThisRound.has(a))return 'Initiative in the Army: another player must perform this Action first this round';
+  if(a==='evacuate'&&!canEvacuate(p))return 'Needs a Medic in Crew or an activated Stabilization Point';
+  if(a==='evacuate'&&!p.wounded.length)return 'No wounded';
+  if(a==='sortie'&&p.cur.noAttacks)return 'Logbooks: no attacks this round';
+  if(a==='sortie'&&!p.depot.some(d=>!d.broken&&d.attacks>0&&pilotFor(p,d)))return 'No usable strike drone with a matching Pilot in Crew';
+  if(a==='recruit'&&!G.decks.char.length)return 'Character deck empty';
+  if(a==='move'&&!board(p).length)return 'No Characters on board';
+  return '';
+}
+async function guard(fn){const t=G.turn;if(!t||t.busy)return;t.busy=true;try{await fn();}catch(e){console.error(e);log('ERROR: '+e.message,'bad');}finally{if(G.turn)G.turn.busy=false;render();checkTechWin();}}
+
+/* ---------- Support card play ---------- */
+function playCard(uid){guard(async()=>{const t=G.turn,p=G.players[t.pi];const c=p.hand.find(x=>x.uid===uid);if(!c||t.cardPlayed)return;
+  if(c.cost>p.logistics)return;
+  if(c.id==='volunteers'&&p.cur.banVolunteers){await notify('Blocked','"Rule Change for Volunteers": you cannot use Volunteers this round. Discard it instead.');return;}
+  if(c.type==='Protection'&&p.protection.some(x=>x.id===c.id)){await notify('Blocked','You cannot have two identical Protection cards at the same time.');return;}
+  if(c.type==='Artillery'&&p.cur.noAttacks){await notify('Blocked','Logbooks: you cannot attack with Support cards this round. Discard it instead.');return;}
+  if(c.type==='Artillery'){const ok=await artilleryAttack(p,c);if(!ok)return;}
+  p.logistics-=c.cost;p.hand.splice(p.hand.indexOf(c),1);t.cardPlayed=true;t.actions+=1;G.turn=t;
+  log(`${p.name} plays ${c.name}${c.cost?` (◈${c.cost})`:''}.`,'hi');
+  if(c.type==='Project'){p.revealed.push(c);}
+  else if(c.type==='Protection'){p.protection.push(c);}
+  else if(c.type==='Artillery'){G.decks.supportDiscard.push(c);}
+  else{ // Bonus
+    switch(c.id){
+      case 'volunteers':addLogi(p,1);break;
+      case 'targeted_programme':addLogi(p,2);break;
+      case 'starlink':t.actions+=1;log(`${p.name}: Starlink — 2 Actions this turn.`);break;
+      case 'drone_ammunition':t.ammoCard=true;break;
+      case 'counter_battery_recon':p.counterBattery=true;break;
+      case 'transfer_order':await transferOrder(p);break;
+    }
+    G.decks.supportDiscard.push(c);
+  }
+});}
+function discardCard(uid){guard(async()=>{const t=G.turn,p=G.players[t.pi];const c=p.hand.find(x=>x.uid===uid);if(!c||t.cardPlayed)return;discardSupport(p,c);t.cardPlayed=true;t.actions+=1;log(`${p.name} discards ${c.name}.`);});}
+function addLogi(p,n){const b=p.logistics;p.logistics=Math.max(0,Math.min(9,p.logistics+n));if(n>0&&p.logistics<b+n)log(`${p.name}: Logistics capped at 9.`);log(`${p.name}: Logistics ${b} → ${p.logistics}.`);}
+async function transferOrder(p){
+  const opts=[];
+  if(G.trench.length)opts.push({label:`Take a random Character from the Trench (${G.trench.length} there${G.trench.length===1?' — emptying it means DEFEAT':''})`,value:'trench'});
+  for(const q of others(p))for(const c of board(q))opts.push({label:`${c.name} from ${q.name}'s ${q.crew.includes(c)?'Crew':'HQ'}`,value:c,off:c.disabled||board(p).some(x=>x.id===c.id),why:c.disabled?'Exhausted Characters cannot be moved':'You already have this Character'});
+  if(!opts.length){log('Transfer Order: nobody to take.');return;}
+  const v=await ask({title:'Transfer Order',text:'Take any Character for yourself from the Trench or from another player.',options:opts,cancel:'Skip'});
+  if(!v)return;
+  let c;
+  if(v==='trench'){
+    // trench chars are face down; draw a random one, must not duplicate
+    const cand=G.trench.filter(x=>!board(p).some(y=>y.id===x.id));
+    if(!cand.length){await notify('Transfer Order','Every Character in the Trench duplicates one you already have.');return;}
+    c=cand[rnd(cand.length)];G.trench.splice(G.trench.indexOf(c),1);
+    if(!G.trench.length){defeat('The Trench is empty — nobody is holding the line.');return;}
+  }else{c=v;const q=G.players.find(q=>board(q).includes(c));q.crew=q.crew.filter(x=>x!==c);q.hq=q.hq.filter(x=>x!==c);}
+  await placeChar(p,c,'Transfer Order: place '+c.name,false);
+}
+async function placeChar(p,c,title,allowTrench=true){
+  const opts=[{label:`Crew (${p.crew.length}/4)`,value:'crew',off:p.crew.length>=4},{label:`HQ (${p.hq.length}/3)`,value:'hq',off:p.hq.length>=3}];
+  if(allowTrench)opts.push({label:'Trench (shared)',value:'trench'});
+  let v=await ask({title,text:cardHTML(c,{noActs:true}),options:opts});
+  if(!v){v=opts.find(o=>!o.off)?.value||'trench';}
+  if(v==='crew')p.crew.push(c);else if(v==='hq')p.hq.push(c);else G.trench.push(c);
+  log(`${p.name}: ${c.name} → ${v==='trench'?'Trench':v.toUpperCase()}.`);
+}
+
+/* ---------- Actions ---------- */
+function doAction(a){guard(async()=>{const t=G.turn,p=G.players[t.pi];if(t.actions<1||actionBlocked(p,a))return;
+  let done=false;
+  if(a==='recruit')done=await actRecruit(p);
+  if(a==='move')done=await actMove(p);
+  if(a==='evacuate')done=await actEvacuate(p);
+  if(a==='buy')done=await actBuy(p);
+  if(a==='sortie')done=await actSortie(p);
+  if(done&&G.turn){t.actions-=1;G.actionsThisRound.add(a);}
+});}
+async function actRecruit(p){
+  let k=p.cur.recruitOne?1:(inHQ(p,'psychologist')?4:2);
+  const drawn=[];for(let i=0;i<k;i++){const c=drawChar();if(c)drawn.push(c);}
+  if(!drawn.length)return false;
+  const dup=c=>board(p).some(x=>x.id===c.id)?'You already have this Character (may still go to Trench)':'';
+  const c=await pickCard(`Recruit — ${p.name}`,`Drew ${drawn.length}. Choose one to keep; the rest go to the bottom of the deck.${k===1?' (Mobilization Disrupted: only 1 drawn)':''}`,drawn,{cancel:'Cancel',labelFn:dup});
+  if(!c){for(const d of drawn)charToBottom(d);return false;}
+  for(const d of drawn)if(d!==c)charToBottom(d);
+  if(board(p).some(x=>x.id===c.id)){G.trench.push(c);log(`${p.name} recruits ${c.name} → Trench (duplicate).`);}
+  else await placeChar(p,c,`Recruit: place ${c.name}`);
+  return true;
+}
+async function actMove(p){
+  // Move any number of chars between Crew/HQ or into Trench
+  const moves=[];
+  while(true){
+    render();
+    const cand=board(p).filter(c=>!c.disabled);
+    const opts=[];
+    for(const c of cand){const z=p.crew.includes(c)?'crew':'hq';
+      if(z==='crew')opts.push({label:`${c.name}: Crew → HQ`,value:[c,'hq'],off:p.hq.length>=3,why:'HQ full'});else opts.push({label:`${c.name}: HQ → Crew`,value:[c,'crew'],off:p.crew.length>=4,why:'Crew full'});
+      opts.push({label:`${c.name}: → Trench`,value:[c,'trench']});}
+    const v=await ask({title:`Move — ${p.name}`,text:`One Action moves as many Characters as you like between Crew/HQ or into the Trench (never out of it). Moved so far: ${moves.length}.`,options:opts,cancel:moves.length?'Done':'Cancel'});
+    if(!v)break;
+    const [c,z]=v;p.crew=p.crew.filter(x=>x!==c);p.hq=p.hq.filter(x=>x!==c);
+    if(z==='crew')p.crew.push(c);else if(z==='hq')p.hq.push(c);else G.trench.push(c);
+    moves.push(c);log(`${p.name} moves ${c.name} → ${z==='trench'?'Trench':z.toUpperCase()}.`);
+  }
+  return moves.length>0;
+}
+async function actEvacuate(p){
+  const c=await pickCard(`Evacuate — ${p.name}`,'Put a wounded Character on the bottom of the Character deck.',p.wounded,{cancel:'Cancel'});
+  if(!c)return false;p.wounded.splice(p.wounded.indexOf(c),1);charToBottom(c);log(`${p.name} evacuates ${c.name}.`,'good');return true;
+}
+async function actBuy(p){
+  const extra=G.decks.drone.pop();if(extra){G.shop.push(extra);log(`${p.name} reveals ${extra.name} in the Shop.`);}
+  render();
+  const c=await pickCard(`Buy a drone — ${p.name}`,`Logistics: ◈${p.logistics}. Depot ${p.depot.length}/3 (buying at 3 means discarding one).`,G.shop,{cancel:'Pass (no purchase)',labelFn:c=>c.cost>p.logistics?'Too expensive':'',offFn:c=>c.cost>p.logistics?'Not enough Logistics':''});
+  if(!c)return true; // action spent even if passing
+  await takeDrone(p,c,c.cost,'shop');
+  return true;
+}
+async function takeDrone(p,c,cost,from){
+  if(p.depot.length>=3){const d=await pickCard('Depot full','Choose a drone to discard from your Depot.',p.depot);if(!d)return false;p.depot.splice(p.depot.indexOf(d),1);G.decks.droneDiscard.push(d);log(`${p.name} discards ${d.name} from Depot.`);}
+  p.logistics-=cost;
+  if(from==='shop'){G.shop.splice(G.shop.indexOf(c),1);const r=G.decks.drone.pop();if(r)G.shop.push(r);}
+  else{G.decks.droneDiscard.splice(G.decks.droneDiscard.indexOf(c),1);}
+  c.broken=false;p.depot.push(c);log(`${p.name} takes ${c.name}${cost?` for ◈${cost}`:''}.`,'hi');return true;
+}
+function validTargets(p,d){return G.playArea.filter(t=>{if(t.isTrouble)return false;if(t.category==='kab')return false;if(t.category==='enemy_drone')return !!d.antiUAV;return d.distances.includes(t.distance);});}
+async function actSortie(p){
+  const t=G.turn;
+  const usable=p.depot.filter(d=>!d.broken&&d.attacks>0&&pilotFor(p,d));
+  const d=await pickCard(`Combat sortie — ${p.name}`,'Choose one strike drone (only one drone may attack per turn).',usable,{cancel:'Cancel',labelFn:d=>`Pilot: ${pilotFor(p,d).name}${bonusOf(pilotFor(p,d),d)?' (+1)':''}`,offFn:d=>validTargets(p,d).length?'':'No valid targets in range'});
+  if(!d)return false;
+  const pilot=pilotFor(p,d);
+  // ammunition
+  let ammoOK=!d.requires.includes('ammunition')||hasAmmoCrew(p)||t.ammoCard;
+  if(!ammoOK){await notify('No Ammunition',`${d.name} needs Ammunition: an Engineer or Sapper in Crew, or a Drone Ammunition card played this turn.`);return false;}
+  if(d.requires.includes('ammunition')&&!hasAmmoCrew(p)){t.ammoCard=false;log(`${p.name} spends Drone Ammunition.`);}
+  let hits=0,attacked=0;
+  for(let i=0;i<d.attacks;i++){
+    render();
+    const targets=validTargets(p,d);if(!targets.length)break;
+    const tg=await pickCard(`Attack ${i+1}/${d.attacks} with ${d.name}`,`Hit on ${d.hitOn}+ after modifiers.${d.breakdownOn?' Natural 1 breaks the drone.':''}`,targets,{cancel:i>0?'Stop sortie':'Cancel sortie',labelFn:tg=>{const ex=attackPreview(p,d,pilot,tg);return ex;},offFn:tg=>reconProblem(p,d,tg)});
+    if(!tg){if(i===0)return false;break;}
+    attacked++;
+    const r=await resolveDroneAttack(p,d,pilot,tg);
+    if(r==='hit')hits++;
+    if(r==='broken')break;
+    if(G.over)return true;
+  }
+  if(d.kamikaze){p.depot.splice(p.depot.indexOf(d),1);G.decks.droneDiscard.push(d);log(`${d.name} is expended (kamikaze).`);}
+  if(inCrew(p,'blogger')){addLogi(p,1);log(`${p.name}: Blogger in Crew — +1 Logistics for the Combat Sortie.`);}
+  return true;
+}
+function reconProblem(p,d,tg){
+  if(!d.requires.includes('recon'))return '';
+  if(tg.category==='enemy_drone')return '';
+  return reconSources(p,tg.distance,tg).length?'':`No Recon at distance ${tg.distance}`;
+}
+function attackPreview(p,d,pilot,tg){
+  const mods=[];
+  if(bonusOf(pilot,d))mods.push('+1 pilot');
+  if(hasAct(p,'frequency_hopping_repeaters')&&d.type!=='mavic')mods.push('+1 repeaters');
+  if(tg.attackPenalty)mods.push(`${tg.attackPenalty} target`);
+  if(tg.category!=='enemy_drone'){const e=ewPenalty(tg.distance);if(e)mods.push(`${e} EW`);}
+  if(krasukha())mods.push('Krasukha: 4 = miss');
+  return mods.join(', ')||'no modifiers';
+}
+async function resolveDroneAttack(p,d,pilot,tg){
+  // recon
+  if(d.requires.includes('recon')&&tg.category!=='enemy_drone'){const src=reconSources(p,tg.distance,tg);if(!src.length)return 'miss';const free=src.find(s=>!s.consume)||src[0];if(free.consume){free.consume();log(`Recon from ${free.label}.`);}else log(`Recon from ${free.label}.`);}
+  // AI module guaranteed hit
+  if(hasAct(p,'ai_module')&&!p.used.ai_module){const v=await ask({title:'AI Module',text:`Guarantee this hit on ${tg.name}? (once per round)`,options:[{label:'Yes — guaranteed hit',value:1},{label:'No, roll the die',value:0,sec:true}]});if(v){p.used.ai_module=true;log(`${p.name}: AI Module — ${d.name} automatically hits ${tg.name}.`,'good');await takeTrophy(p,tg);return 'hit';}}
+  const raw=roll();let total=raw;const parts=[`roll ${raw}`];
+  if(bonusOf(pilot,d)){total++;parts.push('+1 pilot');}
+  if(hasAct(p,'frequency_hopping_repeaters')&&d.type!=='mavic'){total++;parts.push('+1 repeaters');}
+  if(tg.attackPenalty){total+=tg.attackPenalty;parts.push(`${tg.attackPenalty} ${tg.category==='tank'?'armor':'air defence'}`);}
+  let ew=tg.category!=='enemy_drone'?ewPenalty(tg.distance):0;
+  if(ew&&hasAct(p,'crpa_antennas')&&!p.used.crpa_antennas){const v=await ask({title:'CRPA Antennas',text:`Enemy EW gives ${ew}. Ignore it this attack? (once per round)`,options:[{label:'Yes',value:1},{label:'No',value:0,sec:true}]});if(v){p.used.crpa_antennas=true;ew=0;parts.push('EW ignored (CRPA)');}}
+  if(ew){total+=ew;parts.push(`${ew} EW`);}
+  if(hasAct(p,'uav_courses')&&!p.used.uav_courses&&total<d.hitOn&&total+1>=d.hitOn&&!(krasukha()&&total+1===4)){const v=await ask({title:'UAV Courses',text:`Total ${total} — add +1 to make it ${total+1}? (once per round)`,options:[{label:'Yes',value:1},{label:'No',value:0,sec:true}]});if(v){p.used.uav_courses=true;total++;parts.push('+1 UAV Courses');}}
+  let hit=total>=d.hitOn;
+  if(hit&&krasukha()&&total===4){hit=false;parts.push('Krasukha-2: a 4 is a miss');}
+  let res=hit?'hit':'miss';
+  if(!hit&&!d.kamikaze&&raw===1){d.broken=true;res='broken';}
+  log(`${p.name}: ${d.name} vs ${tg.name} — ${parts.join(', ')} = ${total} vs ${d.hitOn}+ → ${hit?'HIT':'miss'}${res==='broken'?' — drone BROKEN':''}.`,hit?'good':'bad');
+  await notify(`${d.name} → ${tg.name}`,`<span class="die">${raw}</span> &nbsp; ${parts.slice(1).join(', ')||''}<br><b>Total ${total}</b> vs ${d.hitOn}+ → <b>${hit?'HIT':'MISS'}</b>${res==='broken'?'<br><span style="color:#f88">Natural 1 — the drone is broken.</span>':''}`);
+  if(hit)await takeTrophy(p,tg);
+  return res;
+}
+async function takeTrophy(p,tg){
+  G.playArea.splice(G.playArea.indexOf(tg),1);p.trophies.push(tg);
+  if(tg.onHit&&tg.onHit.startsWith('suppress:')){for(const c of tg.onHit.slice(9).split(','))G.suppressed.add(c);log(`${tg.name} hit — ${tg.onHit.slice(9).split(',').map(x=>CAT_LABEL[x]).join(', ')} will not attack in this round's Threats phase.`,'good');}
+  log(`${p.name} takes ${tg.name} as a trophy (★${tg.trophy}).`,'good');
+}
+async function artilleryAttack(p,c){
+  const targets=G.playArea.filter(t=>!t.isTrouble&&c.distance.includes(t.distance));
+  if(!targets.length){await notify('No targets',`No enemies at distance ${c.distance.join('/')}.`);return false;}
+  const tg=await pickCard(`${c.name} — choose target`,`Hit on ${c.hitOn}+. Requires Recon at the target's distance.${zoopark()?' Zoopark-1M: −2 to the die.':''}`,targets,{cancel:'Cancel',offFn:tg=>reconSources(p,tg.distance,tg).length?'':`No Recon at distance ${tg.distance}`});
+  if(!tg)return false;
+  const src=reconSources(p,tg.distance,tg);const s=src.find(x=>!x.consume)||src[0];if(s.consume)s.consume();log(`Recon from ${s.label}.`);
+  const canReroll=hasAct(p,'kropyva')||p.depot.some(d=>!d.broken&&d.artilleryReroll&&pilotFor(p,d));
+  let raw=roll(),mod=zoopark()?-2:0,total=raw+mod;
+  log(`${p.name}: ${c.name} vs ${tg.name} — roll ${raw}${mod?` ${mod} Zoopark`:''} = ${total} vs ${c.hitOn}+.`);
+  if(total<c.hitOn&&canReroll){const v=await ask({title:'Adjust fire',text:`Rolled ${raw}${mod?` (${mod} Zoopark)`:''} — miss. Reroll? (reconnaissance drone / "Kropyva")`,options:[{label:'Reroll',value:1},{label:'Accept miss',value:0,sec:true}]});if(v){raw=roll();total=raw+mod;log(`Reroll: ${raw}${mod?` ${mod}`:''} = ${total}.`);}}
+  const hit=total>=c.hitOn;
+  await notify(`${c.name} → ${tg.name}`,`<span class="die">${raw}</span>${mod?` ${mod} (Zoopark-1M)`:''}<br><b>Total ${total}</b> vs ${c.hitOn}+ → <b>${hit?'HIT':'MISS'}</b>`);
+  if(hit){log(`Artillery HIT on ${tg.name}.`,'good');await takeTrophy(p,tg);}else log('Artillery missed.','bad');
+  return true;
+}
+
+/* ---------- Free effects ---------- */
+function useRepair(uid){guard(async()=>{const p=G.players[G.turn.pi];const c=board(p).find(x=>x.uid===uid);if(!c||p.used['repair'+c.uid])return;const bro=p.depot.filter(d=>d.broken);if(!bro.length)return;const d=await pickCard(`${c.name}: repair`,'Choose a broken drone.',bro,{cancel:'Cancel'});if(!d)return;d.broken=false;p.used['repair'+c.uid]=true;log(`${p.name}: ${c.name} repairs ${d.name}.`,'good');});}
+function useSignalman(){guard(async()=>{const t=G.turn,p=G.players[t.pi];if(p.used.signalman||!t.cardPlayed)return;p.used.signalman=true;t.signalUsed=true;t.actions+=1;log(`${p.name}: Signalman — 2 Actions this turn.`);});}
+function exchangeTrophy(uid){guard(async()=>{const p=G.players[G.turn.pi];const c=p.trophies.find(x=>x.uid===uid);if(!c||p.exchanged)return;const v=inHQ(p,'blogger')?c.trophy:(c.trophy===1?1:2);p.trophies.splice(p.trophies.indexOf(c),1);G.decks.threatDiscard.push(c);p.exchanged=true;addLogi(p,v);log(`${p.name} exchanges trophy ${c.name} (★${c.trophy}) for ◈${v}${inHQ(p,'blogger')?' (Blogger in HQ: full value)':''}.`);});}
+function activateProject(uid){guard(async()=>{const p=G.players[G.turn.pi];const c=p.revealed.find(x=>x.uid===uid);if(!c)return;const need=charsFor(p,c.activation);if(!need)return;
+  // let player pick which specific chars when multiple candidates
+  const chosen=[];const pool=board(p).slice();
+  for(const r of c.activation){const id=ACT_MAP[r];const cands=pool.filter(x=>id==='PILOT'?x.pilotTypes.length>0:x.id===id);let ch=cands[0];if(cands.length>1){ch=await pickCard(`Activate ${c.name}: discard a ${r}`,'This Character goes to the bottom of the Character deck.',cands,{cancel:'Cancel'});if(!ch)return;}chosen.push(ch);pool.splice(pool.indexOf(ch),1);}
+  if(chosen.length===1&&!AUTO){const ok=await ask({title:`Activate ${c.name}?`,text:`Discard ${chosen[0].name} (${p.crew.includes(chosen[0])?'Crew':'HQ'}) to the bottom of the Character deck.`,options:[{label:'Activate',value:1}],cancel:'Cancel'});if(!ok)return;}
+  for(const ch of chosen){p.crew=p.crew.filter(x=>x!==ch);p.hq=p.hq.filter(x=>x!==ch);charToBottom(ch);}
+  p.revealed.splice(p.revealed.indexOf(c),1);p.activated.push(c);
+  log(`${p.name} ACTIVATES ${c.name} (discarding ${chosen.map(x=>x.name).join(' + ')}). Total activated: ${totalActivated()}/${3*G.n}.`,'good');
+});}
+function checkTechWin(){if(!G.over&&totalActivated()>=3*G.n){endGame('technology');}}
+function useProject(id){guard(async()=>{const p=G.players[G.turn.pi];if(p.used[id])return;
+  if(id==='tsmtr'){const all=[];for(const q of G.players)for(const c of q.activated)if(c.id!=='tsmtr'&&!all.some(x=>x.id===c.id))all.push(c);if(!all.length){await notify('TsMTR','No other activated Projects at the table yet.');return;}const c=await pickCard('TsMTR — copy a Project','Use this card as any other activated Project of any player (once per round).',all,{cancel:'Cancel'});if(!c)return;p.used.tsmtr=true;log(`${p.name}: TsMTR acts as ${c.name}.`);
+    if(['drone_workshop','drone_production','stabilization_point','ipso'].includes(c.id)){const save=p.used[c.id];p.used[c.id]=false;await projectEffect(p,c.id,true);p.used[c.id]=save;}
+    else{p.tsmtrAs=c.id;await notify('TsMTR',`This round you also count as having ${c.name} activated.`);}
+    return;}
+  await projectEffect(p,id,false);
+});}
+async function projectEffect(p,id,viaTs){
+  if(id==='drone_workshop'){const opts=[];if(G.decks.droneDiscard.length)opts.push({label:'Take a drone from the discard pile (free)',value:'take'});if(p.depot.some(d=>d.broken))opts.push({label:'Repair one of your drones',value:'repair'});if(!opts.length){await notify('Drone Workshop','Nothing to take or repair.');return;}const v=await ask({title:'Drone Workshop',options:opts,cancel:'Cancel'});if(!v)return;
+    if(v==='take'){const d=await pickCard('Drone Workshop','Take a drone from the discard pile.',G.decks.droneDiscard,{cancel:'Cancel'});if(!d)return;if(!await takeDrone(p,d,0,'discard'))return;}else{const d=await pickCard('Drone Workshop','Repair a drone.',p.depot.filter(x=>x.broken),{cancel:'Cancel'});if(!d)return;d.broken=false;log(`${p.name}: Drone Workshop repairs ${d.name}.`,'good');}
+    p.used.drone_workshop=true;}
+  if(id==='drone_production'){if(p.logistics<1){await notify('Drone Production','Needs ◈1.');return;}const pool=G.shop.concat(G.decks.droneDiscard);const d=await pickCard('Drone Production','Take a drone from the Shop or the discard pile for ◈1.',pool,{cancel:'Cancel'});if(!d)return;if(!await takeDrone(p,d,1,G.shop.includes(d)?'shop':'discard'))return;p.used.drone_production=true;}
+  if(id==='stabilization_point'){if(!p.wounded.length){await notify('Stabilization Point','No wounded.');return;}const c=await pickCard('Stabilization Point','Discard a wounded Character into the deck.',p.wounded,{cancel:'Cancel'});if(!c)return;p.wounded.splice(p.wounded.indexOf(c),1);charToBottom(c);p.used.stabilization_point=true;log(`${p.name}: Stabilization Point — ${c.name} evacuated.`,'good');}
+  if(id==='ipso'){const t=G.playArea.filter(c=>!c.isTrouble&&['apc','ifv','infantry'].includes(c.category));if(!t.length){await notify('IPSO','No enemy APC/IFV/Infantry in play.');return;}const c=await pickCard('IPSO','Send an enemy APC, IFV or Infantry back to the Threat deck.',t,{cancel:'Cancel'});if(!c)return;G.playArea.splice(G.playArea.indexOf(c),1);returnThreat(c);p.used.ipso=true;log(`${p.name}: IPSO sends ${c.name} back to the Threat deck.`,'good');}
+}
+
+/* ---------- Threats ---------- */
+async function threatsPhase(){
+  G.phase=1;G.turn=null;
+  log('Threats phase.','rnd');
+  if(G.opts.fog){await layOutThreats();if(G.over)return;}
+  for(const p of order()){
+    if(G.over)return;
+    await defend(p);
+    if(G.over)return;
+    if(G.playArea.some(c=>c.id==='redut_2us')&&p.wounded.length<2){log(`Redut-2US: ${p.name} has fewer than 2 wounded — rolls again.`,'bad');await defend(p,true);if(G.over)return;}
+    if(inCrew(p,'medic')&&p.wounded.length){const c=p.wounded.shift();charToBottom(c);log(`${p.name}: Medic in Crew — ${c.name} discarded into the deck.`,'good');}
+  }
+  if(!G.opts.fog){await layOutThreats();if(G.over)return;}
+  G.duty=(G.duty+1)%G.n;log(`Duty Officer token passes to ${G.players[G.duty].name}.`);
+  render();
+}
+async function defend(p,again=false){
+  DECIDER=p.id;G.phaseNote=`Threats — ${p.name} rolls for enemy activation`;render();
+  await ask({title:`${p.name} — defense roll${again?' (Redut-2US extra roll)':''}`,text:'Roll the die. Every enemy card showing that value activates against you.',options:[{label:'Roll',value:1}]});
+  const r=roll();
+  const act=G.playArea.filter(c=>!c.isTrouble&&c.activation.includes(r)&&!G.suppressed.has(c.category));
+  const sup=G.playArea.filter(c=>!c.isTrouble&&c.activation.includes(r)&&G.suppressed.has(c.category));
+  log(`${p.name} rolls ${r}: ${act.length?act.map(c=>c.name).join(', ')+' activate':'nothing activates'}${sup.length?` (${sup.map(c=>c.name).join(', ')} suppressed)`:''}.`,act.length?'bad':'good');
+  await notify(`${p.name} rolled`,`<span class="die">${r}</span><br>${act.length?'Activating: <b>'+act.map(c=>c.name).join(', ')+'</b>':'Nothing activates.'}${sup.length?'<br>Suppressed: '+sup.map(c=>c.name).join(', '):''}`);
+  for(const c of act){if(G.over)return;if(!G.playArea.includes(c))continue;await activateEnemy(c,p);}
+}
+async function activateEnemy(c,p,depth=0){
+  if(c.category==='enemy_drone'&&p.protection.some(x=>x.id==='ew_equipment')){log(`${p.name}: EW Equipment — ${c.name} ignored.`,'good');return;}
+  const parts=(c.onActivate||'').split(';');
+  for(const part of parts){
+    if(G.over)return;
+    const [op,a,b,x]=part.split(':');
+    if(op==='wound'){const n=+b;for(let i=0;i<n;i++){if(G.over)return;await wound(p,a,c.name);}}
+    else if(op==='removeHQ'){if(p.hq.length){const ch=await pickCard(`${c.name}!`,`${p.name}: set aside 1 Character from your HQ — out for the rest of the game.`,p.hq);p.hq.splice(p.hq.indexOf(ch),1);p.removed.push(ch);log(`${c.name}: ${p.name} loses ${ch.name} for the rest of the game.`,'bad');}else log(`${c.name}: ${p.name} has no HQ Characters — no effect.`);}
+    else if(op==='returnToDeck'){if(G.playArea.includes(c)){G.playArea.splice(G.playArea.indexOf(c),1);returnThreat(c);log(`${c.name} returns to the Threat deck.`);}}
+    else if(op==='breakMostExpensiveDrone'){const cand=p.depot.filter(d=>!d.broken);if(cand.length){cand.sort((u,v)=>v.cost-u.cost||(u.id==='mavic')-(v.id==='mavic'));cand[0].broken=true;log(`${c.name}: ${p.name}'s ${cand[0].name} is broken.`,'bad');}else log(`${c.name}: ${p.name} has no working drone to break.`);}
+    else if(op==='shootDownDrone'){let cand=p.depot.slice();if(a==='type')cand=cand.filter(d=>d.type===b);if(b==='exceptMavic')cand=cand.filter(d=>d.id!=='mavic');
+      if(cand.length){const d=cand.length>1?await pickCard(`${c.name} fires!`,`${p.name}: choose a drone to lose.`,cand):cand[0];p.depot.splice(p.depot.indexOf(d),1);G.decks.droneDiscard.push(d);log(`${c.name} shoots down ${p.name}'s ${d.name}.`,'bad');}else log(`${c.name}: ${p.name} has no eligible drone.`);}
+    else if(op==='activateCategories'){const cats=a.split(',');const list=G.playArea.filter(t=>!t.isTrouble&&cats.includes(t.category)&&(b!=='dist1'||t.distance===1)&&!G.suppressed.has(t.category));log(`${c.name} directs fire: ${list.length?list.map(t=>t.name).join(', '):'no eligible enemies'}.`,'bad');for(const t of list){if(G.over)return;await activateEnemy(t,p,depth+1);}}
+  }
+  if(G.over)return;
+  if(['infantry','tank','ifv','apc'].includes(c.category)&&G.playArea.some(x=>x.id==='kushetka_b')&&depth<3){log('Kushetka-B: one more Threat card is laid out.','bad');const n=drawThreat();if(n)await placeThreat(n,p);}
+}
+async function wound(p,zone,src){
+  if(zone==='trench'){
+    if(!G.trench.length){defeat('The Trench is empty — nobody is holding the line.');return;}
+    const c=G.trench.splice(rnd(G.trench.length),1)[0];p.wounded.push(c);log(`${src}: ${c.name} is wounded in the Trench (→ ${p.name}'s wounded).`,'bad');
+    if(!G.trench.length){defeat('The Trench is empty — nobody is holding the line.');return;}
+  }else{
+    if(!p.crew.length){log(`${src}: hit on ${p.name}'s Crew, but the Crew is empty.`);return;}
+    if(p.protection.some(x=>x.id==='dugout')&&!p.dugoutUsed){p.dugoutUsed=true;log(`${src}: ${p.name}'s Dugout absorbs the hit on the Crew.`,'good');return;}
+    const c=p.crew.length>1?await pickCard(`${src} hits ${p.name}'s Crew`,'Choose the wounded Character.',p.crew):p.crew[0];
+    p.crew.splice(p.crew.indexOf(c),1);c.disabled=false;p.wounded.push(c);log(`${src}: ${p.name}'s ${c.name} is wounded.`,'bad');
+  }
+  if(p.wounded.length>=4)defeat(`${p.name} has 4 wounded Characters that were not evacuated.`);
+}
+async function layOutThreats(){
+  const k=(G.opts.horde?4:3)*G.n;let ti=0;
+  log(`Duty Officer lays out ${k} Threat cards.`);
+  for(let i=0;i<k;i++){if(G.over)return;const c=drawThreat();if(!c){log('Threat deck exhausted.');break;}
+    if(c.isTrouble){const p=G.players[(G.duty+ti)%G.n];ti++;await resolveTrouble(c,p);}else await placeThreat(c,null);}
+  render();
+}
+async function placeThreat(c,p){
+  if(c.isTrouble){await resolveTrouble(c,p||G.players[G.duty]);return;}
+  G.playArea.push(c);log(`Enemy appears: ${c.name}${c.distance===1||c.distance===2?` (distance ${c.distance})`:''}.`,'bad');render();
+}
+async function resolveTrouble(c,p){
+  DECIDER=p.id;log(`TROUBLE for ${c.scope==='all'?'all players':p.name}: ${c.name}.`,'bad');
+  await notify(`Trouble — ${c.scope==='all'?'everyone':p.name}`,cardHTML(c,{noActs:true}));
+  const targets=c.scope==='all'?G.players:[p];
+  switch(c.id){
+    case 'mobilization_disrupted':for(const q of targets)q.next.recruitOne=true;break;
+    case 'rule_change_volunteers':for(const q of targets){q.logistics=0;q.next.banVolunteers=true;}log('All Logistics markers to 0.','bad');break;
+    case 'poor_tourniquets':{const b=board(p);if(b.length){const ch=await pickCard('Poor-Quality Tourniquets',`${p.name}: discard 1 Character from your board — out for the rest of the game.`,b);p.crew=p.crew.filter(x=>x!==ch);p.hq=p.hq.filter(x=>x!==ch);p.removed.push(ch);log(`${p.name} loses ${ch.name} for the rest of the game.`,'bad');}break;}
+    case 'minefield':if(inCrew(p,'sapper'))log(`${p.name} has a Sapper in Crew — Minefield ignored.`,'good');else await wound(p,'crew','Minefield');break;
+    case 'psychological_exhaustion':if(onBoard(p,'psychologist')){log(`${p.name} has a Psychologist — exhaustion ignored.`,'good');}else{const b=board(p).filter(x=>!x.disabled);if(b.length){const ch=await pickCard('Psychological Exhaustion',`${p.name}: place this on one of your Characters. They lose abilities, cannot be moved, still occupy a slot, can be wounded.`,b);ch.disabled=true;log(`${p.name}'s ${ch.name} is psychologically exhausted.`,'bad');}}break;
+    case 'pilots_to_infantry':if(!p.depot.some(d=>d.id!=='mavic')){const n=p.crew.length;G.trench.push(...p.crew);p.crew=[];log(`${p.name} has no drones (Mavic doesn't count) — entire Crew (${n}) moves to the Trench.`,'bad');}else log(`${p.name} has drones — no effect.`);break;
+    case 'initiative_in_army':p.next.initiative=true;break;
+    case 'logbooks':p.next.noAttacks=true;break;
+    case 'wrong_font':p.next.handSize3=true;break;
+    case 'no_fly_weather':for(const q of G.players){for(const d of q.depot.slice()){const r=roll();if(r===1){q.depot.splice(q.depot.indexOf(d),1);G.decks.droneDiscard.push(d);log(`No-Fly Weather: ${q.name}'s ${d.name} rolls 1 — LOST.`,'bad');}else if(r===2){d.broken=true;log(`No-Fly Weather: ${q.name}'s ${d.name} rolls 2 — broken.`,'bad');}else log(`No-Fly Weather: ${q.name}'s ${d.name} rolls ${r} — fine.`);}}break;
+  }
+  G.decks.threatDiscard.push(c);render();
+}
+
+/* ---------- Recovery ---------- */
+async function recoveryPhase(){
+  G.phase=2;G.phaseNote='Recovery phase';log('Recovery phase.','rnd');
+  G.suppressed=new Set();
+  for(const p of G.players){
+    for(const c of p.protection)G.decks.supportDiscard.push(c);p.protection=[];
+    p.used={};p.exchanged=false;p.counterBattery=false;p.dugoutUsed=false;p.tsmtrAs=null;
+    const hq=p.hq.length,extra=inHQ(p,'logistician')?1:0;
+    if(hq+extra){addLogi(p,hq+extra);log(`${p.name}: +${hq}${extra?'+1 (Logistician)':''} Logistics from HQ.`);}
+    p.cur=p.next;p.next={};p.handSize=p.cur.handSize3?3:4;
+    drawSupport(p,5);
+  }
+  render();
+  for(const p of G.players){await discardDownTo(p,p.handSize,`Recovery: discard down to ${p.handSize}${p.cur.handSize3?' (Report in the Wrong Font)':''}`);}
+  G.phaseNote=null;
+}
+
+/* ---------- End ---------- */
+function defeat(reason){if(G.over)return;log(`DEFEAT — ${reason}`,'bad');G.over={html:`<div class="defeat"><h1>DEFEAT</h1><p style="font-size:18px;color:var(--sand)">${esc(reason)}</p><p class="hint">Everyone loses. "If a player has 4 wounded, or the Trench is empty — all players lose."</p>${scoreTable(false)}<p><button onclick="location.reload()">Play again</button></p></div>`};G.turn=null;render();}
+function endGame(how){if(G.over)return;const rows=scoreRows();const best=rows[0];
+  log(`VICTORY by ${how==='technology'?'TECHNOLOGY':'ROTATION'}. Winner: ${best.p.name} with ${best.total} pts.`,'good');
+  G.over={html:`<div class="victory"><h1>${how==='technology'?'TECHNOLOGY VICTORY':'ROTATION — YOU HELD'}</h1><p style="color:var(--sand);font-size:18px">${how==='technology'?`${3*G.n} Projects activated at the table.`:`${G.maxRound} rounds survived.`} Commander with the most points: <b>${esc(best.p.name)}</b></p>${scoreTable(true)}<p><button onclick="location.reload()">Play again</button></p></div>`};G.turn=null;render();}
+function scoreRows(){return G.players.map(p=>{const tr=p.trophies.reduce((a,c)=>a+c.trophy,0),pr=p.activated.reduce((a,c)=>a+c.cost,0),w=-3*p.wounded.length;return{p,tr,pr,w,total:tr+pr+w,chars:board(p).length};}).sort((a,b)=>b.total-a.total||b.chars-a.chars);}
+function scoreTable(win){const rows=scoreRows();return `<table class="score"><tr><th>Commander</th><th>Trophies</th><th>Activated Projects (cost)</th><th>Wounded ×−3</th><th>Total</th><th>Characters (tiebreak)</th></tr>${rows.map(r=>`<tr><td>${esc(r.p.name)}</td><td>${r.tr}</td><td>${r.pr}</td><td>${r.w}</td><td><b>${r.total}</b></td><td>${r.chars}</td></tr>`).join('')}</table>`;}
+
+/* ============================ REFERENCE TEXT ============================ */
+const RULES_HTML=`<div class="rules">
+<h4>Goal</h4><p>Cooperative. Destroy as many enemy troops as possible without losing. The commander with the most points wins if the team survives.</p>
+<h4>Defeat (everyone loses)</h4><ul><li>Any player has 4 wounded, un-evacuated Characters.</li><li>No Characters are left in the Trench.</li></ul>
+<h4>Victory</h4><ul><li><b>Rotation</b>: survive 4 rounds.</li><li><b>Technology</b>: activated Projects at the table total 3 per player.</li></ul>
+<h4>Round = 3 phases</h4>
+<p><b>1. Command</b> — in turn order from the Duty Officer, each player: plays or discards one Support card, then takes one Action. Repeat until hands are empty (normally 4 turns each).</p>
+<ul><li><b>Recruit</b>: draw 2 Characters (4 with a Psychologist in HQ), keep 1 → Crew / HQ / Trench. No duplicate Characters on one board.</li>
+<li><b>Move</b>: any number of Characters between Crew and HQ, or into the Trench. Never out of the Trench (only "Transfer Order" does that).</li>
+<li><b>Evacuate</b>: a wounded Character goes to the bottom of the deck. Needs a Medic in Crew or an activated Stabilization Point.</li>
+<li><b>Buy a drone</b>: reveal one more Shop card, then buy one (or pass). Depot max 3.</li>
+<li><b>Combat sortie</b>: one drone, 1–3 attacks. Needs a matching Pilot in Crew and the drone's Recon / Ammunition. Roll ≥ the drone's value after modifiers = hit, take the card as a trophy. Natural 1 on a reusable drone = broken.</li></ul>
+<p>Free at any time: use Character / activated-Project effects (once-per-round ones flip face down), exchange ONE trophy per round (★1 → ◈1; ★2–4 → ◈2), activate a revealed Project by discarding the named Characters from Crew/HQ.</p>
+<p><b>2. Threats</b> — each player rolls once; every enemy card with that value activates against them. Then the Duty Officer draws 3 Threat cards per player: Troubles are dealt around the table starting with the Duty Officer, enemies join the play area. Duty Officer passes left.</p>
+<p><b>3. Recovery</b> — discard Protection cards, +1 Logistics per Character in HQ, draw 5 Support and discard down to 4, ready once-per-round cards.</p>
+<h4>Resources</h4><ul><li><b>Logistics</b> (track 0–9): buys drones and Support cards.</li><li><b>Recon</b> at a distance: Mavic/Valkyrie (D1), Furia/Leleka (D1–2), "Delta", Counter-Battery Recon (vs artillery/MLRS/TOS only). Drone must be unbroken with its Pilot in Crew.</li><li><b>Ammunition</b>: Engineer or Sapper in Crew, or a Drone Ammunition card. Mavic needs none.</li></ul>
+<h4>Scoring</h4><p>Trophy stars + cost of your activated Projects − 3 per un-evacuated wounded. Tiebreak: more Characters on your board.</p>
+</div>`;
+const RULINGS_HTML=`<div class="rules">
+<p>Where the rulebook and cards left room for interpretation, this trainer does the following. Change at the table as you see fit.</p>
+<ul>
+<li><b>Breakdown</b>: cards say "on a failed attack: breakdown"; rulebook says when the result equals the red die (1). Implemented as a <i>natural 1</i> that misses. A 1 that still hits after bonuses does not break the drone.</li>
+<li><b>Specialist pilots</b> (FPV / Multirotor / Wing) may also fly the Mavic (its icon is on their card), without the +1.</li>
+<li><b>Depot cap 3</b> counts the Mavic. "Pilots to the Infantry!" does not count it.</li>
+<li><b>Buying</b>: the Shop permanently grows by one card each Buy action (reveal one more, then the bought slot is refilled), exactly as written.</li>
+<li><b>Passing</b> on a Buy action still spends the Action (the reveal happened).</li>
+<li><b>Recon via "Delta"</b> is consumed only when no free source (recon drone / Counter-Battery) covers that distance.</li>
+<li><b>Counter-Battery Recon</b> lasts the whole round, as its text says, even though Bonuses are normally discarded at end of turn.</li>
+<li><b>Drone Ammunition</b> and <b>Starlink</b> apply to the turn they are played, per the Bonus rule.</li>
+<li><b>Logistician in HQ</b>: +2 instead of +1 for that Character — total Recovery income = HQ count + 1.</li>
+<li><b>Blogger in HQ</b>: the one trophy exchange per round pays the full star value.</li>
+<li><b>Logistics</b> capped at 9 (end of the track).</li>
+<li><b>Most expensive drone</b> (Leer-2 / Shipovnik): highest cost, unbroken; ties prefer non-Mavic.</li>
+<li><b>Osa / Tunguska / Tor</b>: you choose which eligible drone is lost; nothing eligible = no effect.</li>
+<li><b>Orlan-10 / Zala</b> fire all eligible artillery regardless of die value; suppressed categories (Ammo Depot / Fuel Tanker hit this round) stay silent.</li>
+<li><b>Kushetka-B</b> draws one extra Threat card per qualifying activation (chain depth limited to avoid infinite loops); a Trouble drawn this way hits the defending player.</li>
+<li><b>Redut-2US</b>: extra defense roll once, after Medic/Dugout have applied.</li>
+<li><b>Krasukha-2</b>: a <i>total</i> of exactly 4 is a miss for drones; artillery cards unaffected.</li>
+<li><b>Enemy UAVs</b> can be attacked only by anti-UAV drones (FPV Kit, Darts, Kosa), at any distance; EW penalties don't apply to those shots.</li>
+<li><b>KAB-500</b> sits in the Air lane; it cannot be attacked and has no trophy value.</li>
+<li><b>Transfer Order</b> from the Trench draws a random face-down Character; emptying the Trench this way is a defeat, as the rules state.</li>
+<li><b>Psychological Exhaustion</b> is ignored if a Psychologist is anywhere on your board (Crew or HQ). Exhausted Characters may still be discarded to activate a Project.</li>
+<li><b>Technology victory</b> ends the game immediately when the 3-per-player total is reached.</li>
+<li><b>Threat / Support decks</b> reshuffle their discard piles when exhausted.</li>
+<li><b>TsMTR</b> copying a passive Project (Repeaters, Kropyva, Vezha) is noted in the log but not mechanically applied — handle manually.</li>
+<li>ISTAR draft variant not implemented.</li>
+</ul></div>`;
+
+// ---- client-side RPC: UI handlers send intents to the host ----
+const RPC=['playCard','discardCard','doAction','endTurn','useRepair','useSignalman','exchangeTrophy','activateProject','useProject'];
+const HOST_FN={};for(const f of RPC){HOST_FN[f]=window[f];window[f]=function(...args){if(NET&&!IS_HOST){NET.send('host',{type:'act',fn:f,args});return;}HOST_FN[f](...args);};}
+function hostAct(seat,msg){if(!G||!G.turn||G.turn.pi!==seat||G.over)return;if(!RPC.includes(msg.fn))return;HOST_FN[msg.fn](...(msg.args||[]));}
+
+/* ============================ TRANSPORT ============================ */
+function makeCode(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<6;i++)s+=a[rnd(a.length)];return s;}
+function Transport(code,isHost,onMsg,onStatus){
+  const T={conns:{},send(to,msg){},broadcast(msg){for(const k in T.conns)T.send(k,msg);},status:'connecting'};
+  if(LOCAL){ // same-browser test mode via BroadcastChannel
+    const ch=new BroadcastChannel('dv-'+code);const me=isHost?'host':('c'+Math.random().toString(36).slice(2,8));
+    ch.onmessage=e=>{const {to,from,msg}=e.data;if(to!==me&&to!=='*')return;if(isHost&&!T.conns[from])T.conns[from]={};onMsg(from,msg);};
+    T.send=(to,msg)=>ch.postMessage({to:isHost?to:'host',from:me,msg});
+    T.conns={};if(!isHost)T.conns.host={};
+    setTimeout(()=>onStatus('open'),50);return T;
+  }
+  if(!window.Peer){onStatus('error: could not load the PeerJS library — check your internet connection and reload');return T;}
+  const peer=new Peer(isHost?'dronovody-'+code:undefined,{debug:1});
+  peer.on('open',()=>{if(isHost)onStatus('open');else{const c=peer.connect('dronovody-'+code,{reliable:true});wire(c,'host');}});
+  peer.on('error',e=>onStatus('error:'+(e.type||e.message)));
+  peer.on('connection',c=>wire(c,c.peer));
+  function wire(c,key){T.conns[key]=c;c.on('open',()=>{if(!isHost)onStatus('open');});c.on('data',m=>onMsg(key,m));c.on('close',()=>{delete T.conns[key];onStatus('closed:'+key);});c.on('error',e=>onStatus('error:'+e));}
+  T.send=(to,msg)=>{const c=T.conns[to];if(c&&c.open)c.send(msg);};
+  return T;
+}
+/* ============================ LOBBY ============================ */
+const SEATKEY={};// peer key -> seat
+function renderLobby(){
+  const m=document.getElementById('main');
+  if(!NET){m.innerHTML=`<div id="setup" class="section"><h2 style="color:var(--sand);margin-bottom:8px">Dronovody — play online</h2>
+    <p class="hint">One player hosts and shares the room code; the other joins with it. Both keep this page open for the whole game (the host's browser runs the rules). Cooperative: nothing is hidden, talk freely.</p>
+    <div class="row" style="gap:24px;margin-top:10px">
+      <div class="section" style="flex:1"><h3>Host a game</h3><label>Your name <input id="hName" value="Alpha"></label>
+        <label><input type="checkbox" id="sFirst" checked> First game: remove △ enemy cards</label>
+        <label><input type="checkbox" id="sDelayed"> Delayed Rotation (6 rounds)</label>
+        <label><input type="checkbox" id="sRandom"> Random Start</label>
+        <label><input type="checkbox" id="sFog"> Fog of War</label>
+        <label><input type="checkbox" id="sHorde"> Horde (4 threats/player)</label>
+        <p><button onclick="hostGame()">Create room</button></p></div>
+      <div class="section" style="flex:1"><h3>Join a game</h3><label>Your name <input id="jName" value="Bravo"></label><label>Room code <input id="jCode" maxlength="6" style="text-transform:uppercase" placeholder="ABC123"></label><p><button onclick="joinGame()">Join</button></p></div>
+    </div>
+    <p class="hint" style="margin-top:12px">Needs internet on both ends (the handshake goes through the public PeerJS broker; play is browser-to-browser). If the host closes the tab, the game is over. Some strict corporate/mobile networks block direct connections — try a different network if joining never completes.</p></div>`;return;}
+  m.innerHTML=`<div id="setup" class="section"><h2 style="color:var(--sand)">Room <span style="font-size:28px;letter-spacing:.2em">${esc(LOBBY.code)}</span></h2>
+    <p class="hint">${IS_HOST?'Share this code. Start when everyone is in (2–4 players).':'Waiting for the host to start…'}</p>
+    <p>Status: <b id="lobbyStatus">${esc(LOBBY.status||'')}</b></p>
+    <h3 style="color:var(--sand)">Players</h3><ol>${LOBBY.players.map((n,i)=>`<li>${esc(n)}${i===0?' (host, Duty Officer first)':''}${i===SEAT?' — you':''}</li>`).join('')}</ol>
+    ${IS_HOST?`<p><button onclick="startNet()" ${LOBBY.players.length<2?'disabled':''}>Start game</button></p>`:''}</div>`;
+}
+function hostGame(){
+  IS_HOST=true;SEAT=0;LOBBY={code:makeCode(),players:[document.getElementById('hName').value||'Host'],status:'opening room…'};
+  LOBBY.opts={firstGame:document.getElementById('sFirst').checked,delayed:document.getElementById('sDelayed').checked,random:document.getElementById('sRandom').checked,fog:document.getElementById('sFog').checked,horde:document.getElementById('sHorde').checked};
+  NET=Transport(LOBBY.code,true,hostOnMsg,st=>{LOBBY.status=st==='open'?'Room open — waiting for players':st;renderLobbyStatus();});
+  renderLobby();
+}
+function renderLobbyStatus(){if(!G)renderLobby();}
+function hostOnMsg(from,msg){
+  if(msg.type==='join'){
+    let seat=SEATKEY[from];
+    if(seat===undefined){const old=LOBBY.players.indexOf(msg.name);if(G&&old>0){seat=old;for(const k in SEATKEY)if(SEATKEY[k]===old)delete SEATKEY[k];log(`${msg.name} reconnected.`);} // reconnect by name takes the seat over
+      else if(G){NET.send(from,{type:'refused',why:'Game already running'});return;}
+      else{seat=LOBBY.players.length;LOBBY.players.push(msg.name||('Player '+(seat+1)));}}
+    SEATKEY[from]=seat;NET.send(from,{type:'joined',seat,code:LOBBY.code,players:LOBBY.players});NET.broadcast({type:'lobby',players:LOBBY.players});
+    if(G){NET.send(from,{type:'state',g:snapshot()});if(PENDING[seat])NET.send(from,{type:'prompt',payload:PENDING[seat].payload});}
+    renderLobbyStatus();if(AUTO&&!G&&LOBBY.players.length>=2)setTimeout(startNet,100);return;}
+  const seat=SEATKEY[from];if(seat===undefined)return;
+  if(msg.type==='answer')answerFromClient(seat,msg.id,msg.ans);
+  else if(msg.type==='act')hostAct(seat,msg);
+}
+function joinGame(){
+  IS_HOST=false;const code=(document.getElementById('jCode').value||'').toUpperCase().trim();const name=document.getElementById('jName').value||'Guest';
+  if(code.length<4)return;
+  LOBBY={code,players:[],status:'connecting…'};
+  NET=Transport(code,false,clientOnMsg,st=>{LOBBY.status=st;if(st==='open')NET.send('host',{type:'join',name});renderLobbyStatus();});
+  renderLobby();
+}
+function clientOnMsg(from,msg){
+  if(msg.type==='joined'){SEAT=msg.seat;LOBBY.players=msg.players;LOBBY.status='Connected';renderLobby();}
+  else if(msg.type==='lobby'){LOBBY.players=msg.players;renderLobby();}
+  else if(msg.type==='refused'){LOBBY.status=msg.why;renderLobby();}
+  else if(msg.type==='state'){applyState(msg.g);}
+  else if(msg.type==='prompt'){const pl=msg.payload;localAsk({title:pl.title,text:pl.text,cancel:pl.cancel,cards:pl.cards,multi:pl.multi,min:pl.min,max:pl.max,options:pl.options.map((o,i)=>({label:o.label,card:o.card,off:o.off,why:o.why,sec:o.sec,value:i}))}).then(v=>NET.send('host',{type:'answer',id:pl.id,ans:v}));}
+}
+async function startNet(){if(!IS_HOST||LOBBY.players.length<2)return;await startGame(LOBBY.players.length,LOBBY.players,LOBBY.opts);}
+
+renderLobby();
+if(AUTO&&/host=1/.test(location.search)){document.getElementById('hName').value='Alpha';hostGame();}
+if(AUTO&&/join=([A-Z0-9]+)/.test(location.search)){document.getElementById('jCode').value=RegExp.$1;joinGame();}
+</script>
+</body>
+</html>
